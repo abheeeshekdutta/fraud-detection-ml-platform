@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 Decision = Literal["approve", "review", "block"]
 Uncertainty = Literal["low", "medium", "high"]
@@ -12,11 +11,11 @@ Severity = Literal["info", "warning", "critical"]
 
 
 class TransactionEvent(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
 
     event_id: str = Field(min_length=1)
     transaction_id: int = Field(gt=0)
-    event_time: datetime
+    event_time: AwareDatetime
     amount: float = Field(ge=0)
     product_cd: str = Field(min_length=1)
     card_features: dict[str, Any] = Field(default_factory=dict)
@@ -27,7 +26,7 @@ class TransactionEvent(BaseModel):
 
 
 class ReasonCode(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
 
     feature: str = Field(min_length=1)
     direction: ReasonDirection
@@ -35,11 +34,11 @@ class ReasonCode(BaseModel):
 
 
 class DecisionEvent(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
 
     event_id: str = Field(min_length=1)
     transaction_id: int = Field(gt=0)
-    scored_at: datetime
+    scored_at: AwareDatetime
     model_version: str = Field(min_length=1)
     feature_schema_version: str = Field(min_length=1)
     decision_policy_version: str = Field(min_length=1)
@@ -51,12 +50,21 @@ class DecisionEvent(BaseModel):
     reason_codes: list[ReasonCode] = Field(default_factory=list)
     latency_ms: float = Field(ge=0)
 
+    @field_validator("conformal_prediction_set")
+    @classmethod
+    def reject_duplicate_prediction_labels(
+        cls, prediction_set: list[Literal["legit", "fraud"]]
+    ) -> list[Literal["legit", "fraud"]]:
+        if len(prediction_set) != len(set(prediction_set)):
+            raise ValueError("conformal_prediction_set cannot contain duplicate labels")
+        return prediction_set
+
 
 class AlertEvent(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
 
     alert_id: str = Field(min_length=1)
-    created_at: datetime
+    created_at: AwareDatetime
     severity: Severity
     alert_type: str = Field(min_length=1)
     message: str = Field(min_length=1)
