@@ -116,6 +116,14 @@ def test_load_policy_rejects_yaml_list(tmp_path) -> None:
         load_policy(policy_path)
 
 
+def test_load_policy_wraps_yaml_parser_errors(tmp_path) -> None:
+    policy_path = tmp_path / "decision_policy.yaml"
+    policy_path.write_text("version: [unterminated\n")
+
+    with pytest.raises(ValueError, match=f"failed to parse policy YAML at {policy_path}"):
+        load_policy(policy_path)
+
+
 @pytest.mark.parametrize("probability", [-0.1, 1.1, math.nan])
 def test_policy_rejects_invalid_calibrated_probability(probability: float) -> None:
     policy = DecisionPolicy(PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8))

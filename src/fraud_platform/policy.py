@@ -51,7 +51,11 @@ class DecisionPolicy:
 
 
 def load_policy(path: str | Path) -> DecisionPolicy:
-    payload = yaml.safe_load(Path(path).read_text())
+    policy_path = Path(path)
+    try:
+        payload = yaml.safe_load(policy_path.read_text())
+    except yaml.YAMLError as exc:
+        raise ValueError(f"failed to parse policy YAML at {policy_path}") from exc
     if payload is None:
         payload = {}
     if not isinstance(payload, Mapping):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from typing import Any, Literal
 
@@ -25,13 +26,41 @@ def _parse_aware_datetime(value: Any) -> Any:
     return parsed
 
 
+def _validate_json_value(value: Any) -> Any:
+    if value is None or isinstance(value, str | bool):
+        return value
+    if type(value) is int:
+        return value
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise ValueError("JSON-compatible float values must be finite")
+        return value
+    if isinstance(value, list):
+        for item in value:
+            _validate_json_value(item)
+        return value
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ValueError("JSON-compatible dict keys must be strings")
+            _validate_json_value(item)
+        return value
+    raise ValueError("value must be JSON-compatible")
+
+
+def _validate_json_map(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    return _validate_json_value(value)
+
+
 class TransactionEvent(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     event_id: str = Field(min_length=1)
     transaction_id: int = Field(gt=0)
     event_time: AwareDatetime
-    amount: float = Field(ge=0)
+    amount: float = Field(ge=0, allow_inf_nan=False)
     product_cd: str = Field(min_length=1)
     card_features: dict[str, Any] = Field(default_factory=dict)
     address_features: dict[str, Any] = Field(default_factory=dict)
@@ -44,13 +73,24 @@ class TransactionEvent(BaseModel):
     def parse_event_time(cls, value: Any) -> Any:
         return _parse_aware_datetime(value)
 
+    @field_validator(
+        "card_features",
+        "address_features",
+        "email_domain_features",
+        "identity_features",
+        mode="before",
+    )
+    @classmethod
+    def validate_feature_maps(cls, value: Any) -> Any:
+        return _validate_json_map(value)
+
 
 class ReasonCode(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     feature: str = Field(min_length=1)
     direction: ReasonDirection
-    contribution: float | None = None
+    contribution: float | None = Field(default=None, allow_inf_nan=False)
 
 
 class DecisionEvent(BaseModel):
@@ -62,13 +102,13 @@ class DecisionEvent(BaseModel):
     model_version: str = Field(min_length=1)
     feature_schema_version: str = Field(min_length=1)
     decision_policy_version: str = Field(min_length=1)
-    fraud_probability: float = Field(ge=0, le=1)
-    calibrated_probability: float = Field(ge=0, le=1)
+    fraud_probability: float = Field(ge=0, le=1, allow_inf_nan=False)
+    calibrated_probability: float = Field(ge=0, le=1, allow_inf_nan=False)
     conformal_prediction_set: list[Literal["legit", "fraud"]]
     uncertainty: Uncertainty
     decision: Decision
     reason_codes: list[ReasonCode] = Field(default_factory=list)
-    latency_ms: float = Field(ge=0)
+    latency_ms: float = Field(ge=0, allow_inf_nan=False)
 
     @field_validator("scored_at", mode="before")
     @classmethod
@@ -99,3 +139,8 @@ class AlertEvent(BaseModel):
     @classmethod
     def parse_created_at(cls, value: Any) -> Any:
         return _parse_aware_datetime(value)
+
+    @field_validator("metadata", mode="before")
+    @classmethod
+    def validate_metadata(cls, value: Any) -> Any:
+        return _validate_json_map(value)
