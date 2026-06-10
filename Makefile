@@ -16,7 +16,7 @@ train-smoke:
 	uv run fraud-train --synthetic --output-dir artifacts/model/latest
 
 api:
-	uv run uvicorn fraud_platform.api:create_app --factory --reload --host 0.0.0.0 --port 8000
+	uv run fraud-api
 
 compose-up:
 	docker compose up --build
