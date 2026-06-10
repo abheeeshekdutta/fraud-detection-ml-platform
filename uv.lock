@@ -570,6 +570,7 @@ dependencies = [
     { name = "lightgbm" },
     { name = "mapie" },
     { name = "mlflow" },
+    { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "prometheus-client" },
@@ -579,7 +580,8 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "scikit-learn" },
-    { name = "shap" },
+    { name = "shap", version = "0.50.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+    { name = "shap", version = "0.51.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
     { name = "sqlalchemy" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -602,6 +604,7 @@ requires-dist = [
     { name = "lightgbm", specifier = ">=4.5.0" },
     { name = "mapie", specifier = ">=0.9.0" },
     { name = "mlflow", specifier = ">=2.18.0" },
+    { name = "numba", specifier = ">=0.60.0" },
     { name = "numpy", specifier = ">=1.26.0" },
     { name = "pandas", specifier = ">=2.2.0" },
     { name = "prometheus-client", specifier = ">=0.21.0" },
@@ -759,7 +762,7 @@ name = "gunicorn"
 version = "26.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "packaging" },
+    { name = "packaging", marker = "sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6d/b7/a4a3f632f823e432ce6bc65f62961b7980c898c77f075a2f7118cb3846fe/gunicorn-26.0.0.tar.gz", hash = "sha256:ca9346f85e3a4aeeb64d491045c16b9a35647abd37ea15efe53080eb8b090baf", size = 727286, upload-time = "2026-05-05T06:38:25.529Z" }
 wheels = [
@@ -982,22 +985,8 @@ wheels = [
 
 [[package]]
 name = "llvmlite"
-version = "0.36.0"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "platform_machine == 'x86_64' and sys_platform == 'darwin'",
-]
-sdist = { url = "https://files.pythonhosted.org/packages/19/66/6b2c49c7c68da48d17059882fdb9ad9ac9e5ac3f22b00874d7996e3c44a8/llvmlite-0.36.0.tar.gz", hash = "sha256:765128fdf5f149ed0b889ffbe2b05eb1717f8e20a5c87fa2b4018fbcce0fcfc9", size = 126219, upload-time = "2021-03-12T13:41:52.064Z" }
-
-[[package]]
-name = "llvmlite"
 version = "0.47.0"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "sys_platform == 'win32'",
-    "sys_platform == 'emscripten'",
-    "(platform_machine != 'x86_64' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32')",
-]
 sdist = { url = "https://files.pythonhosted.org/packages/01/88/a8952b6d5c21e74cbf158515b779666f692846502623e9e3c39d8e8ba25f/llvmlite-0.47.0.tar.gz", hash = "sha256:62031ce968ec74e95092184d4b0e857e444f8fdff0b8f9213707699570c33ccc", size = 193614, upload-time = "2026-03-31T18:29:53.497Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/34/0b/b9d1911cfefa61399821dfb37f486d83e0f42630a8d12f7194270c417002/llvmlite-0.47.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:74090f0dcfd6f24ebbef3f21f11e38111c4d7e6919b54c4416e1e357c3446b07", size = 37232770, upload-time = "2026-03-31T18:28:26.765Z" },
@@ -1269,30 +1258,11 @@ wheels = [
 
 [[package]]
 name = "numba"
-version = "0.53.1"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "platform_machine == 'x86_64' and sys_platform == 'darwin'",
-]
-dependencies = [
-    { name = "llvmlite", version = "0.36.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
-    { name = "numpy", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
-    { name = "setuptools", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e3/7d/3d61160836e49f40913741c464f119551c15ed371c1d91ea50308495b93b/numba-0.53.1.tar.gz", hash = "sha256:9cd4e5216acdc66c4e9dab2dfd22ddb5bef151185c070d4a3cd8e78638aff5b0", size = 2213956, upload-time = "2021-03-26T09:15:50.402Z" }
-
-[[package]]
-name = "numba"
 version = "0.65.1"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "sys_platform == 'win32'",
-    "sys_platform == 'emscripten'",
-    "(platform_machine != 'x86_64' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32')",
-]
 dependencies = [
-    { name = "llvmlite", version = "0.47.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
-    { name = "numpy", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+    { name = "llvmlite" },
+    { name = "numpy" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f6/c5/db2ac3685833d626c0dcae6bd2330cd68433e1fd248d15f70998160d3ad7/numba-0.65.1.tar.gz", hash = "sha256:19357146c32fe9ed25059ab915e8465fb13951cf6b0aace3826b76886373ab23", size = 2765600, upload-time = "2026-04-24T02:02:56.551Z" }
 wheels = [
@@ -1936,32 +1906,50 @@ wheels = [
 ]
 
 [[package]]
-name = "setuptools"
-version = "82.0.1"
+name = "shap"
+version = "0.50.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/4f/db/cfac1baf10650ab4d1c111714410d2fbb77ac5a616db26775db562c8fab2/setuptools-82.0.1.tar.gz", hash = "sha256:7d872682c5d01cfde07da7bccc7b65469d3dca203318515ada1de5eda35efbf9", size = 1152316, upload-time = "2026-03-09T12:47:17.221Z" }
+resolution-markers = [
+    "platform_machine == 'x86_64' and sys_platform == 'darwin'",
+]
+dependencies = [
+    { name = "cloudpickle", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+    { name = "numba", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+    { name = "numpy", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+    { name = "packaging", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+    { name = "pandas", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+    { name = "scikit-learn", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+    { name = "scipy", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+    { name = "slicer", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+    { name = "tqdm", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+    { name = "typing-extensions", marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2b/2c/9ccbfbdf5ceeb914317f9691ef1fca3118d4a997eb5e79bcd8992f56c938/shap-0.50.0.tar.gz", hash = "sha256:bdc559acf7f647bc3bb22c6a1fea9f50716ed357ad595bc357b43082ae4dc6b9", size = 4087800, upload-time = "2025-11-11T18:36:53.363Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9d/76/f789f7a86709c6b087c5a2f52f911838cad707cc613162401badc665acfe/setuptools-82.0.1-py3-none-any.whl", hash = "sha256:a59e362652f08dcd477c78bb6e7bd9d80a7995bc73ce773050228a348ce2e5bb", size = 1006223, upload-time = "2026-03-09T12:47:15.026Z" },
+    { url = "https://files.pythonhosted.org/packages/9b/ae/6231a667492887d775fddc0f248d48a9d6cc2cd981ea888217f0cd97acfa/shap-0.50.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:70a0e9c3b13a2b900ab4777a56d1e6cacddfd95f67cf382cdde24d376fbe13f4", size = 558401, upload-time = "2025-11-11T18:35:56.693Z" },
 ]
 
 [[package]]
 name = "shap"
 version = "0.51.0"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "sys_platform == 'win32'",
+    "sys_platform == 'emscripten'",
+    "(platform_machine != 'x86_64' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32')",
+]
 dependencies = [
-    { name = "cloudpickle" },
-    { name = "llvmlite", version = "0.36.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
-    { name = "llvmlite", version = "0.47.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
-    { name = "numba", version = "0.53.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'darwin'" },
-    { name = "numba", version = "0.65.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
-    { name = "numpy" },
-    { name = "packaging" },
-    { name = "pandas" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
-    { name = "slicer" },
-    { name = "tqdm" },
-    { name = "typing-extensions" },
+    { name = "cloudpickle", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+    { name = "llvmlite", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+    { name = "numba", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+    { name = "numpy", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+    { name = "packaging", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+    { name = "pandas", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+    { name = "scikit-learn", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+    { name = "scipy", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+    { name = "slicer", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+    { name = "tqdm", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
+    { name = "typing-extensions", marker = "platform_machine != 'x86_64' or sys_platform != 'darwin'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a4/0a/4a3ee4b1a3654f2a9ae038a64bb3e91a42af3da07577d69b65241f010970/shap-0.51.0.tar.gz", hash = "sha256:cfa17ff213657c9d50285aa923d79b0037a62e2ee1a31bc3eec7e196b00bdb59", size = 4108336, upload-time = "2026-03-04T09:18:19.985Z" }
 wheels = [

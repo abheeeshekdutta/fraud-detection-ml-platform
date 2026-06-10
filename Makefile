@@ -13,7 +13,8 @@ format:
 	uv run ruff format src tests
 
 train-smoke:
-	uv run fraud-train --synthetic --output-dir artifacts/model/latest
+	@echo "train-smoke is available after Task 5 implements training artifacts"
+	@exit 1
 
 api:
 	uv run fraud-api

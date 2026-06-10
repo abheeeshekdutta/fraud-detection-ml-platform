@@ -9,6 +9,7 @@ __pycache__/
 .ipynb_checkpoints/
 .coverage
 htmlcov/
+coverage/
 
 data/raw/
 data/interim/
@@ -19,3 +20,4 @@ reports/generated/
 
 node_modules/
 dashboard/dist/
+dashboard/coverage/
