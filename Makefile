@@ -1,4 +1,4 @@
-.PHONY: install test lint format train-smoke api compose-up compose-down dashboard
+.PHONY: install test lint format train-smoke api compose-up compose-down compose-reset dashboard
 
 install:
 	uv sync --extra dev
@@ -22,6 +22,9 @@ compose-up:
 	docker compose up --build
 
 compose-down:
+	docker compose down
+
+compose-reset:
 	docker compose down -v
 
 dashboard:
