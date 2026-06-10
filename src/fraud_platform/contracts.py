@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
@@ -8,6 +9,20 @@ Decision = Literal["approve", "review", "block"]
 Uncertainty = Literal["low", "medium", "high"]
 ReasonDirection = Literal["increases_risk", "decreases_risk"]
 Severity = Literal["info", "warning", "critical"]
+
+
+def _parse_aware_datetime(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("datetime string must be a valid ISO 8601 datetime") from exc
+
+    if parsed.tzinfo is None or parsed.tzinfo.utcoffset(parsed) is None:
+        raise ValueError("datetime string must include timezone information")
+    return parsed
 
 
 class TransactionEvent(BaseModel):
@@ -23,6 +38,11 @@ class TransactionEvent(BaseModel):
     email_domain_features: dict[str, Any] = Field(default_factory=dict)
     identity_features: dict[str, Any] = Field(default_factory=dict)
     schema_version: str = Field(min_length=1)
+
+    @field_validator("event_time", mode="before")
+    @classmethod
+    def parse_event_time(cls, value: Any) -> Any:
+        return _parse_aware_datetime(value)
 
 
 class ReasonCode(BaseModel):
@@ -50,6 +70,11 @@ class DecisionEvent(BaseModel):
     reason_codes: list[ReasonCode] = Field(default_factory=list)
     latency_ms: float = Field(ge=0)
 
+    @field_validator("scored_at", mode="before")
+    @classmethod
+    def parse_scored_at(cls, value: Any) -> Any:
+        return _parse_aware_datetime(value)
+
     @field_validator("conformal_prediction_set")
     @classmethod
     def reject_duplicate_prediction_labels(
@@ -69,3 +94,8 @@ class AlertEvent(BaseModel):
     alert_type: str = Field(min_length=1)
     message: str = Field(min_length=1)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def parse_created_at(cls, value: Any) -> Any:
+        return _parse_aware_datetime(value)

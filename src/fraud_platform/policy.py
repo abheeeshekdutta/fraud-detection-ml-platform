@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,8 +35,12 @@ class DecisionPolicy:
     def decide(self, calibrated_probability: float, prediction_set: list[str]) -> PolicyDecision:
         if not math.isfinite(calibrated_probability) or not 0 <= calibrated_probability <= 1:
             raise ValueError("calibrated_probability must be finite and within [0, 1]")
+        if len(prediction_set) != len(set(prediction_set)):
+            raise ValueError("prediction_set cannot contain duplicate labels")
 
         labels = set(prediction_set)
+        if unknown_labels := labels - {"legit", "fraud"}:
+            raise ValueError(f"prediction_set contains invalid labels: {sorted(unknown_labels)}")
         if labels == {"legit"} and calibrated_probability <= self.config.approve_threshold:
             return PolicyDecision(decision="approve", uncertainty="low")
         if labels == {"fraud"} and calibrated_probability >= self.config.block_threshold:
@@ -46,5 +51,9 @@ class DecisionPolicy:
 
 
 def load_policy(path: str | Path) -> DecisionPolicy:
-    payload = yaml.safe_load(Path(path).read_text()) or {}
+    payload = yaml.safe_load(Path(path).read_text())
+    if payload is None:
+        payload = {}
+    if not isinstance(payload, Mapping):
+        raise ValueError("policy YAML must contain a mapping")
     return DecisionPolicy(PolicyConfig(**payload))

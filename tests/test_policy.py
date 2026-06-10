@@ -69,6 +69,20 @@ def test_policy_reviews_empty_conformal_set() -> None:
     assert result.uncertainty == "high"
 
 
+def test_policy_rejects_duplicate_prediction_labels() -> None:
+    policy = DecisionPolicy(PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8))
+
+    with pytest.raises(ValueError, match="duplicate"):
+        policy.decide(calibrated_probability=0.95, prediction_set=["fraud", "fraud"])
+
+
+def test_policy_rejects_invalid_prediction_labels() -> None:
+    policy = DecisionPolicy(PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8))
+
+    with pytest.raises(ValueError, match="prediction_set"):
+        policy.decide(calibrated_probability=0.95, prediction_set=["chargeback"])
+
+
 def test_policy_reviews_probability_threshold_mismatch() -> None:
     policy = DecisionPolicy(PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8))
 
@@ -91,6 +105,14 @@ def test_policy_config_rejects_extra_yaml_keys(tmp_path) -> None:
     )
 
     with pytest.raises(ValidationError):
+        load_policy(policy_path)
+
+
+def test_load_policy_rejects_yaml_list(tmp_path) -> None:
+    policy_path = tmp_path / "decision_policy.yaml"
+    policy_path.write_text("- version: v1\n")
+
+    with pytest.raises(ValueError, match="policy YAML must contain a mapping"):
         load_policy(policy_path)
 
 
