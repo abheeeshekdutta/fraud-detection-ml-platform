@@ -1,0 +1,142 @@
+services:
+  kafka:
+    image: confluentinc/cp-kafka:8.1.0
+    ports:
+      - "9092:9092"
+    environment:
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://kafka:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+  postgres:
+    image: postgres:17-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: fraud
+      POSTGRES_PASSWORD: fraud
+      POSTGRES_DB: fraud
+    volumes:
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  mlflow:
+    image: python:3.11-slim
+    ports:
+      - "5000:5000"
+    command: >
+      sh -c "pip install --no-cache-dir mlflow &&
+      mlflow server --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:///mlflow.db
+      --default-artifact-root /mlflow/artifacts"
+
+  fraud-api:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    ports:
+      - "8000:8000"
+    env_file: .env.example
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DATABASE_URL: postgresql+psycopg://fraud:fraud@postgres:5432/fraud
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MODEL_BUNDLE_PATH: artifacts/model/latest
+      DECISION_POLICY_PATH: configs/decision_policy.yaml
+    command: ["fraud-api"]
+    volumes:
+      - ./artifacts:/app/artifacts
+    depends_on:
+      - kafka
+      - postgres
+      - mlflow
+
+  fraud-consumer:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    env_file: .env.example
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DATABASE_URL: postgresql+psycopg://fraud:fraud@postgres:5432/fraud
+      MODEL_BUNDLE_PATH: artifacts/model/latest
+      DECISION_POLICY_PATH: configs/decision_policy.yaml
+    command:
+      - fraud-consumer
+      - --bootstrap-servers
+      - kafka:29092
+      - --model-path
+      - artifacts/model/latest
+      - --policy-path
+      - configs/decision_policy.yaml
+    volumes:
+      - ./artifacts:/app/artifacts
+    depends_on:
+      - kafka
+      - postgres
+
+  transaction-producer:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    env_file: .env.example
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    command:
+      - fraud-replay
+      - --bootstrap-servers
+      - kafka:29092
+      - --replay-path
+      - data/processed/replay.parquet
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - kafka
+
+  monitoring-worker:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    env_file: .env.example
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DATABASE_URL: postgresql+psycopg://fraud:fraud@postgres:5432/fraud
+    command: ["fraud-monitor"]
+    depends_on:
+      - kafka
+      - postgres
+
+  prometheus:
+    image: prom/prometheus:v3.12.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana-oss:13.0.2
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/dashboard.Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - fraud-api

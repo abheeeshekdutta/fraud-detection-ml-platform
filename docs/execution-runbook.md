@@ -76,12 +76,31 @@ This task adds topic definitions in:
 
 - `configs/kafka_topics.yaml`
 
-The Docker Compose stack that creates Kafka topics is planned for a later deployment slice.
+The Docker Compose stack runs Kafka in KRaft mode alongside Postgres, MLflow, Prometheus, Grafana,
+the API, the consumer, the replay producer, the monitoring worker, and the dashboard.
 
-Expected output after that later stack exists:
+Before starting the full stack, make sure the smoke model exists:
+
+```bash
+uv run fraud-train --synthetic --output-dir artifacts/model/latest
+```
+
+Then run:
+
+```bash
+docker compose up --build
+```
+
+Expected local services:
 
 - Kafka topics named `transaction-events`, `fraud-decisions`, `fraud-labels`, `model-alerts`, and
   `dead-letter-events`.
+- Postgres at `localhost:5432`.
+- Fraud API at `http://localhost:8000`.
+- MLflow at `http://localhost:5000`.
+- Prometheus at `http://localhost:9090`.
+- Grafana at `http://localhost:3000`.
+- Dashboard at `http://localhost:5173`.
 
 ## 6. Replay Transactions Into Kafka
 

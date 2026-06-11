@@ -445,3 +445,42 @@ This document records implementation task summaries for learning and review.
 - Frontend tests need the same browser assumptions as the components; React render tests should declare jsdom explicitly.
 - Local dashboards should handle offline backend endpoints as a normal development state, not as an unhandled error.
 - Checking dependency audit output during scaffold creation is cheaper than cleaning up a vulnerable lockfile later.
+
+## Task 12: Docker Compose And Observability
+
+**What changed**
+
+- Added backend and dashboard Dockerfiles.
+- Added a Docker Compose stack for Kafka, Postgres, MLflow, fraud API, fraud consumer, replay producer, monitoring worker, Prometheus, Grafana, and dashboard.
+- Added Postgres initialization SQL for prediction and alert storage tables.
+- Added Prometheus scrape configuration for the fraud API metrics endpoint.
+- Added Grafana datasource and dashboard provisioning for API request rate and p95 scoring latency.
+- Added deployment configuration tests that parse Compose, Prometheus, Grafana, and Postgres config files.
+- Added `.dockerignore` to keep local environments, node modules, generated data, and artifacts out of Docker build contexts.
+- Updated deployment docs and the execution runbook with Compose startup guidance.
+
+**Problems faced**
+
+- The first focused deployment tests failed as expected because the Compose, Postgres, Prometheus, and Grafana files did not exist yet.
+- Bitnami Kafka public image availability changed, so it was not a good default for a free local project.
+- The local machine does not currently have `docker` or `promtool` available on PATH, so native Compose and Prometheus validators could not be run here.
+- The full stack requires a model artifact before `fraud-api` can start successfully.
+
+**Solutions applied**
+
+- Used Confluent's `cp-kafka` image for a local KRaft Kafka broker.
+- Added file-level tests for service names, ports, database URL wiring, SQL table definitions, Prometheus scrape targets, Grafana datasource, and dashboard expressions.
+- Documented `uv run fraud-train --synthetic --output-dir artifacts/model/latest` as a prerequisite before `docker compose up --build`.
+- Added mounted volumes for local artifacts and data so the API and replay producer can use host-generated outputs.
+
+**Verification performed**
+
+- `uv run pytest tests/test_deployment_config.py -q`
+- `docker compose config` attempted but could not run because `docker` is not installed or not on PATH.
+- `promtool check config monitoring/prometheus.yml` attempted but could not run because `promtool` is not installed or not on PATH.
+
+**Reusable learnings**
+
+- Deployment config should have lightweight parse tests even when Docker is unavailable in the current environment.
+- Avoid image sources whose free/public availability has changed; deployment defaults should remain reproducible for learners.
+- Compose docs should name startup prerequisites explicitly, especially when one service depends on a generated local artifact.
