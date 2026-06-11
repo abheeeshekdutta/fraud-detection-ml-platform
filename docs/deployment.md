@@ -72,6 +72,19 @@ Then start the local services:
 docker compose up --build
 ```
 
+## Health Checks
+
+After the stack starts, check:
+
+- API: `curl http://localhost:8000/health`
+- API docs: `http://localhost:8000/docs`
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3000`
+- Dashboard: `http://localhost:5173`
+
+If Docker Compose is unavailable on the local machine, the checked-in deployment tests still parse
+the Compose, Prometheus, Grafana, and Postgres configuration files.
+
 ## Cost
 
 Required cost: `$0`.

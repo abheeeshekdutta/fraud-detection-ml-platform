@@ -80,3 +80,14 @@ Every production prediction should record:
 - conformal uncertainty output
 - reason codes
 - latency
+
+## Implemented Artifact Metadata
+
+Every packaged model bundle includes:
+
+- `model_version`
+- `feature_schema_version`
+- `decision_policy_version`
+- `model_type`
+
+The initial synthetic model is a smoke-test artifact, not the final IEEE-CIS production candidate.

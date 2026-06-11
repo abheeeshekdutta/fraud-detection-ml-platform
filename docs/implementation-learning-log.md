@@ -484,3 +484,39 @@ This document records implementation task summaries for learning and review.
 - Deployment config should have lightweight parse tests even when Docker is unavailable in the current environment.
 - Avoid image sources whose free/public availability has changed; deployment defaults should remain reproducible for learners.
 - Compose docs should name startup prerequisites explicitly, especially when one service depends on a generated local artifact.
+
+## Task 13: Documentation, End-To-End Smoke, And Project Polish
+
+**What changed**
+
+- Added a README quickstart with local startup commands and key service URLs.
+- Updated README status to reflect the implemented smoke-path platform pieces.
+- Added `docs/runbook.md` for local startup, health checks, and common operational issues.
+- Added `docs/demo-script.md` for a recruiter/interviewer walkthrough.
+- Updated the model card with implemented artifact metadata.
+- Added deployment health checks and clarified that config tests still run when Docker is unavailable.
+
+**Problems faced**
+
+- Docker Compose could not be validated with `docker compose config` because `docker` is not installed or not on PATH in this environment.
+- The docs needed to be honest that the current model is still a synthetic smoke artifact, not the full IEEE-CIS trained candidate.
+
+**Solutions applied**
+
+- Documented the smoke training command as the prerequisite before starting the full stack.
+- Separated operator troubleshooting guidance from the recruiter-facing demo flow.
+- Kept the README quickstart short and linked deeper docs for details.
+
+**Verification performed**
+
+- `uv run ruff check src tests scripts`
+- `uv run pytest -q`
+- `npm run build`
+- `npm run test`
+- `docker compose config` attempted but could not run because `docker` is not installed or not on PATH.
+
+**Reusable learnings**
+
+- A final polish slice should make the project teachable, not just runnable.
+- Documentation should clearly distinguish smoke-test artifacts from final modeling goals so readers do not overestimate current model maturity.
+- Demo scripts help turn engineering work into a coherent story for portfolio reviews and interviews.
