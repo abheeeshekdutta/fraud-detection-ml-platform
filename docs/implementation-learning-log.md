@@ -293,3 +293,40 @@ This document records implementation task summaries for learning and review.
 - Prediction storage should persist governance metadata beside every score so downstream audit and dashboard views do not depend on model internals.
 - JSON columns are useful for flexible reason codes and alert metadata, but strict upstream contracts are what keep them safe.
 - EDA deserves its own reproducible slice before full benchmark modeling, not just an informal notebook afterthought.
+
+## Task 8.5: IEEE-CIS EDA And Data Profiling
+
+**What changed**
+
+- Added a reusable `fraud_platform.data_profile` module for IEEE-CIS exploratory profiling.
+- Added a CLI script, `scripts/profile_ieee_cis.py`, that reads raw IEEE-CIS CSVs from `data/raw`.
+- Added generated-output support for EDA CSV tables, lightweight SVG charts, and `docs/data-profile.md`.
+- Added tests for fraud imbalance, transaction amount summaries, ProductCD fraud rates, identity join coverage, missingness, categorical cardinality, time-window drift, leakage checks, missing-data handling, and output generation.
+
+**Problems faced**
+
+- The first focused EDA test failed as expected because the profiler module did not exist.
+- The CLI initially printed a Python traceback when raw IEEE-CIS files were missing.
+- A test import for `scripts/profile_ieee_cis.py` failed because root-level scripts are not installed as normal package modules.
+- Ruff caught import-order and line-length issues during verification.
+
+**Solutions applied**
+
+- Moved the profiling calculations into an importable module under `src/fraud_platform`.
+- Kept `scripts/profile_ieee_cis.py` as a thin command-line wrapper around the tested module.
+- Converted missing raw data into a clean `SystemExit` message that tells the user which files are expected.
+- Loaded the CLI script by file path in tests to match how the script is executed.
+
+**Verification performed**
+
+- `uv run pytest tests/test_data_profile.py -q`
+- `uv run pytest -q`
+- `uv run ruff check src tests scripts`
+- `git diff --check`
+- Manual missing-data CLI check with `uv run python scripts/profile_ieee_cis.py --raw-dir /tmp/fraud-platform-missing-data`
+
+**Reusable learnings**
+
+- EDA logic should be testable as ordinary Python functions, not locked inside notebooks or scripts.
+- Profiling before full training helps choose CatBoost and LightGBM preprocessing strategies based on real missingness, cardinality, and drift.
+- Missing-data failures are part of developer experience; clear CLI exits are better than stack traces for expected setup gaps.
