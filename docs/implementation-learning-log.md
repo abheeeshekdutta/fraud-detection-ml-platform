@@ -222,3 +222,39 @@ This document records implementation task summaries for learning and review.
 - A shared scoring engine keeps API and Kafka consumers from duplicating model loading, feature mapping, policy application, and governance metadata.
 - Early scoring slices can use simple uncertainty logic if the interface preserves where calibrated and conformal artifacts will plug in later.
 - Scoring output should be validated as a serializable contract object before downstream storage or dashboard work begins.
+
+## Task 7: FastAPI Scoring And Operations Endpoints
+
+**What changed**
+
+- Replaced the initial `fraud-api` placeholder with a real FastAPI app factory.
+- Added environment-backed settings for local model, policy, Kafka, Postgres, and MLflow defaults.
+- Added `/health`, `/model-info`, `/score`, and `/metrics` endpoints.
+- Added Prometheus request and scoring-latency metrics.
+- Added API tests using a synthetic model-backed `ScoringEngine`.
+
+**Problems faced**
+
+- The first focused API test failed as expected because the scaffold placeholder did not expose `create_app`.
+- `TestClient` emits a third-party Starlette deprecation warning about `httpx`; tests still pass.
+- The API must support dependency injection for tests while still loading the configured model and policy in normal runtime.
+
+**Solutions applied**
+
+- Added `create_app(scoring_engine: ScoringEngine | None = None)` so tests can inject a temporary synthetic model while runtime can load from settings.
+- Used the strict `TransactionEvent` and `DecisionEvent` contracts directly as request/response models.
+- Added `/metrics` using `prometheus_client.generate_latest()`.
+
+**Verification performed**
+
+- `uv run pytest tests/test_api.py -q`
+- `uv run pytest -q`
+- `uv run ruff check src tests`
+- `git diff --check`
+- Manual API smoke for `/health`, `/score`, `/metrics`, and invalid score payload validation.
+
+**Reusable learnings**
+
+- App factories make service tests much cleaner because expensive runtime dependencies can be injected.
+- Reusing strict contracts at the API boundary gives immediate 422 responses for malformed scoring payloads.
+- Metrics endpoints should be present early so service behavior can be observed as soon as the app runs.

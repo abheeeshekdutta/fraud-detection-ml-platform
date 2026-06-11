@@ -1,0 +1,14 @@
+from __future__ import annotations
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    app_env: str = "local"
+    kafka_bootstrap_servers: str = "localhost:9092"
+    database_url: str = "postgresql+psycopg://fraud:fraud@localhost:5432/fraud"
+    mlflow_tracking_uri: str = "http://localhost:5000"
+    model_bundle_path: str = "artifacts/model/latest"
+    decision_policy_path: str = "configs/decision_policy.yaml"
