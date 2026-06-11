@@ -91,3 +91,21 @@ Every packaged model bundle includes:
 - `model_type`
 
 The initial synthetic model is a smoke-test artifact, not the final IEEE-CIS production candidate.
+
+## Current IEEE-CIS Baseline
+
+The first real-data artifact is:
+
+- `model_version`: `ieee-logistic-baseline:1`
+- `model_type`: `logistic_regression_ieee_baseline`
+- training sample: most recent 100,000 rows from the time-ordered training split
+- validation split: 88,581 later transactions
+
+Validation metrics:
+
+- ROC-AUC: 0.7023
+- PR-AUC: 0.0977
+- Brier score: 0.0307
+
+This is a baseline for platform validation and comparison. It is not the final recommended fraud
+model; CatBoost and LightGBM should be benchmarked next.

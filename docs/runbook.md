@@ -8,6 +8,13 @@ Run the smoke training command before starting the API if no model artifact exis
 uv run fraud-train --synthetic --output-dir artifacts/model/latest
 ```
 
+After downloading IEEE-CIS data, train the current real-data baseline with:
+
+```bash
+uv run fraud-train --prepare-ieee --raw-dir data/raw --processed-dir data/processed
+uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir artifacts/model/latest --max-train-rows 100000
+```
+
 Start the local stack:
 
 ```bash

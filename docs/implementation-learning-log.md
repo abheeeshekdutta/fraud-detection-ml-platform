@@ -520,3 +520,41 @@ This document records implementation task summaries for learning and review.
 - A final polish slice should make the project teachable, not just runnable.
 - Documentation should clearly distinguish smoke-test artifacts from final modeling goals so readers do not overestimate current model maturity.
 - Demo scripts help turn engineering work into a coherent story for portfolio reviews and interviews.
+
+## Task 14: IEEE-CIS Processing And Baseline Training Foundation
+
+**What changed**
+
+- Downloaded the IEEE-CIS Kaggle dataset into `data/raw`.
+- Ran the EDA profiler and generated `docs/data-profile.md` plus report tables/charts under `reports/eda`.
+- Added `prepare_ieee_cis_splits()` to create time-ordered train, calibration, validation, and replay Parquet splits.
+- Added a real-data logistic baseline training path with `uv run fraud-train --ieee-baseline`.
+- Trained the first IEEE-CIS baseline model artifact into `artifacts/model/latest`.
+- Added `docs/ieee-cis-analysis.md` with EDA findings, split analysis, baseline metrics, and next modeling recommendations.
+- Updated README, runbook, and model card with real-data baseline commands and metrics.
+
+**Problems faced**
+
+- The Kaggle CLI was not installed and the machine was not authenticated at first.
+- The first `--prepare-ieee` CLI run wrote splits but exited incorrectly because the CLI did not return after preparation.
+- The first logistic baseline emitted a convergence warning.
+- Raw Kaggle data, processed Parquet files, and model artifacts are intentionally ignored, so the durable record of findings needed to live in docs and report files.
+
+**Solutions applied**
+
+- Used `uvx kaggle auth login` for OAuth authentication and `uvx kaggle competitions download` for dataset download.
+- Added a regression test for the `--prepare-ieee` CLI mode and fixed the return path.
+- Added numeric imputation/scaling and increased logistic regression iterations to produce a cleaner baseline fit.
+- Captured the model results in `docs/ieee-cis-analysis.md` and the model card instead of committing ignored artifacts.
+
+**Verification performed**
+
+- `uv run pytest tests/test_ieee_pipeline.py tests/test_training.py -q`
+- `uv run fraud-train --prepare-ieee --raw-dir data/raw --processed-dir data/processed`
+- `uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir artifacts/model/latest --max-train-rows 100000`
+
+**Reusable learnings**
+
+- Real fraud datasets need time-based splits before model quality claims; random splits would hide drift.
+- Identity coverage can be sparse in production-like fraud data, so identity features should be treated as optional enrichment.
+- A quick logistic baseline is useful as a floor, but rare-event PR-AUC and segment risk show why CatBoost/LightGBM benchmarking is still needed.

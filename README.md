@@ -84,8 +84,14 @@ data validation + time-aware split
    - Grafana: `http://localhost:3000`
    - Prometheus: `http://localhost:9090`
 
-The current synthetic model is a smoke-test artifact so the platform can run end to end before the
-full IEEE-CIS benchmark training slice is implemented.
+If IEEE-CIS data is available in `data/raw`, use the real-data baseline instead:
+
+```bash
+uv run fraud-train --prepare-ieee --raw-dir data/raw --processed-dir data/processed
+uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir artifacts/model/latest --max-train-rows 100000
+```
+
+The current IEEE-CIS baseline is a comparison floor. CatBoost and LightGBM benchmarking comes next.
 
 ## Documentation
 
@@ -95,6 +101,7 @@ full IEEE-CIS benchmark training slice is implemented.
 - [Operator Runbook](docs/runbook.md)
 - [Demo Script](docs/demo-script.md)
 - [IEEE-CIS Data Profile](docs/data-profile.md)
+- [IEEE-CIS Findings And Baseline Analysis](docs/ieee-cis-analysis.md)
 - [Modeling Plan](docs/modeling.md)
 - [Monitoring Plan](docs/monitoring.md)
 - [Deployment Plan](docs/deployment.md)
