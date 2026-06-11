@@ -27,7 +27,16 @@ def test_compose_stack_defines_expected_services_and_ports() -> None:
     }.issubset(services)
     assert "8000:8000" in services["fraud-api"]["ports"]
     assert "5173:80" in services["dashboard"]["ports"]
+    assert "5001:5000" in services["mlflow"]["ports"]
+    assert "5000:5000" not in services["mlflow"]["ports"]
     assert services["fraud-api"]["environment"]["DATABASE_URL"].endswith("@postgres:5432/fraud")
+    for service_name in (
+        "fraud-api",
+        "fraud-consumer",
+        "transaction-producer",
+        "monitoring-worker",
+    ):
+        assert services[service_name]["environment"]["MLFLOW_TRACKING_URI"] == "http://mlflow:5000"
     assert services["fraud-consumer"]["command"][0] == "fraud-consumer"
 
 

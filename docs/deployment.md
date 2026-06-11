@@ -43,7 +43,7 @@ Defaults:
 
 - dashboard: `localhost:5173`
 - fraud API: `localhost:8000`
-- MLflow: `localhost:5000`
+- MLflow: `localhost:5001`
 - Grafana: `localhost:3000`
 - Prometheus: `localhost:9090`
 - Kafka broker: `localhost:9092`

@@ -9,6 +9,6 @@ class Settings(BaseSettings):
     app_env: str = "local"
     kafka_bootstrap_servers: str = "localhost:9092"
     database_url: str = "postgresql+psycopg://fraud:fraud@localhost:5432/fraud"
-    mlflow_tracking_uri: str = "http://localhost:5000"
+    mlflow_tracking_uri: str = "http://localhost:5001"
     model_bundle_path: str = "artifacts/model/latest"
     decision_policy_path: str = "configs/decision_policy.yaml"

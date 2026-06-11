@@ -80,7 +80,7 @@ data validation + time-aware split
 6. Open:
    - dashboard: `http://localhost:5173`
    - fraud API: `http://localhost:8000/docs`
-   - MLflow: `http://localhost:5000`
+   - MLflow: `http://localhost:5001`
    - Grafana: `http://localhost:3000`
    - Prometheus: `http://localhost:9090`
 

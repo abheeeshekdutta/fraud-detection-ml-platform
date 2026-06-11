@@ -23,7 +23,7 @@ starts, and attaches to services defined in the Compose file.
 - API docs: `http://localhost:8000/docs`
 - API metrics: `curl http://localhost:8000/metrics`
 - Dashboard: `http://localhost:5173`
-- MLflow: `http://localhost:5000`
+- MLflow: `http://localhost:5001`
 - Grafana: `http://localhost:3000`
 - Prometheus: `http://localhost:9090`
 

@@ -210,7 +210,7 @@ MODEL_ALERTS_TOPIC=model-alerts
 DEAD_LETTER_EVENTS_TOPIC=dead-letter-events
 
 DATABASE_URL=postgresql+psycopg://fraud:fraud@localhost:5432/fraud
-MLFLOW_TRACKING_URI=http://localhost:5000
+MLFLOW_TRACKING_URI=http://localhost:5001
 
 MODEL_BUNDLE_PATH=artifacts/model/latest
 DECISION_POLICY_PATH=configs/decision_policy.yaml
@@ -1790,7 +1790,7 @@ class Settings(BaseSettings):
     app_env: str = "local"
     kafka_bootstrap_servers: str = "localhost:9092"
     database_url: str = "postgresql+psycopg://fraud:fraud@localhost:5432/fraud"
-    mlflow_tracking_uri: str = "http://localhost:5000"
+    mlflow_tracking_uri: str = "http://localhost:5001"
     model_bundle_path: str = "artifacts/model/latest"
     decision_policy_path: str = "configs/decision_policy.yaml"
 ```
@@ -3340,7 +3340,7 @@ services:
   mlflow:
     image: python:3.11-slim
     ports:
-      - "5000:5000"
+      - "5001:5000"
     command: >
       sh -c "pip install --no-cache-dir mlflow && mlflow server
       --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db
@@ -3616,7 +3616,7 @@ Modify `README.md` to include:
 6. Open:
    - dashboard: `http://localhost:5173`
    - fraud API: `http://localhost:8000/docs`
-   - MLflow: `http://localhost:5000`
+   - MLflow: `http://localhost:5001`
    - Grafana: `http://localhost:3000`
    - Prometheus: `http://localhost:9090`
 ```

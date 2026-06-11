@@ -97,7 +97,7 @@ Expected local services:
   `dead-letter-events`.
 - Postgres at `localhost:5432`.
 - Fraud API at `http://localhost:8000`.
-- MLflow at `http://localhost:5000`.
+- MLflow at `http://localhost:5001`.
 - Prometheus at `http://localhost:9090`.
 - Grafana at `http://localhost:3000`.
 - Dashboard at `http://localhost:5173`.

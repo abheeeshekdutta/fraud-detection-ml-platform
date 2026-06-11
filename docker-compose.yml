@@ -32,7 +32,7 @@ services:
   mlflow:
     image: python:3.11-slim
     ports:
-      - "5000:5000"
+      - "5001:5000"
     command: >
       sh -c "pip install --no-cache-dir mlflow &&
       mlflow server --host 0.0.0.0 --port 5000
@@ -68,6 +68,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       DATABASE_URL: postgresql+psycopg://fraud:fraud@postgres:5432/fraud
+      MLFLOW_TRACKING_URI: http://mlflow:5000
       MODEL_BUNDLE_PATH: artifacts/model/latest
       DECISION_POLICY_PATH: configs/decision_policy.yaml
     command:
@@ -91,6 +92,7 @@ services:
     env_file: .env.example
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      MLFLOW_TRACKING_URI: http://mlflow:5000
     command:
       - fraud-replay
       - --bootstrap-servers
@@ -110,6 +112,7 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       DATABASE_URL: postgresql+psycopg://fraud:fraud@postgres:5432/fraud
+      MLFLOW_TRACKING_URI: http://mlflow:5000
     command: ["fraud-monitor"]
     depends_on:
       - kafka
