@@ -330,3 +330,43 @@ This document records implementation task summaries for learning and review.
 - EDA logic should be testable as ordinary Python functions, not locked inside notebooks or scripts.
 - Profiling before full training helps choose CatBoost and LightGBM preprocessing strategies based on real missingness, cardinality, and drift.
 - Missing-data failures are part of developer experience; clear CLI exits are better than stack traces for expected setup gaps.
+
+## Task 9: Kafka Replay Producer And Fraud Consumer
+
+**What changed**
+
+- Added Kafka topic definitions for transaction events, fraud decisions, labels, model alerts, and dead-letter events.
+- Added Pydantic event serialization and deserialization helpers.
+- Replaced the replay placeholder with a Kafka replay producer that publishes processed transactions in `TransactionDT` order.
+- Replaced the consumer placeholder with a scoring consumer that reads transaction events, scores them, and publishes fraud decisions.
+- Added unit tests with fake Kafka producer/consumer clients so streaming behavior can be verified without Docker.
+- Added a skipped Kafka integration test placeholder for the later Docker Compose stack.
+- Added an execution runbook that explains data placement, script order, and expected outputs.
+
+**Problems faced**
+
+- The first streaming test failed as expected because `fraud_platform.streaming` did not exist yet.
+- Replay and consumer tests then failed because the placeholder modules did not expose testable helpers.
+- The first fake scoring engine returned a plain dictionary, but production serialization expects Pydantic contract objects.
+- Ruff caught import-order formatting in the new streaming tests.
+
+**Solutions applied**
+
+- Added a small `streaming.py` helper around Pydantic JSON serialization.
+- Kept replay logic in a reusable `replay_frame()` function, with Confluent Kafka only in the CLI wrapper path.
+- Kept consumer logic in `consume_available_messages()` so unit tests can use fake clients while runtime uses real Kafka clients.
+- Updated the fake scoring engine to return a real `DecisionEvent`, matching the production scoring contract.
+- Documented the current execution chain in `docs/execution-runbook.md`.
+
+**Verification performed**
+
+- `uv run pytest tests/test_streaming.py -q`
+- `uv run pytest -q`
+- `uv run ruff check src tests scripts`
+- `git diff --check`
+
+**Reusable learnings**
+
+- Streaming code is easier to test when Kafka clients are passed into small helper functions instead of hidden inside loops.
+- Test doubles should honor real project contracts; returning a dict hid an unrealistic behavior that Pydantic serialization correctly rejected.
+- A runbook should be created as soon as multiple scripts exist, otherwise the project becomes hard to operate even when the code works.

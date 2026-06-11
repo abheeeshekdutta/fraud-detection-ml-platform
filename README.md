@@ -74,6 +74,8 @@ data validation + time-aware split
 
 - [Architecture](docs/architecture.md)
 - [Data Contracts](docs/data-contracts.md)
+- [Execution Runbook](docs/execution-runbook.md)
+- [IEEE-CIS Data Profile](docs/data-profile.md)
 - [Modeling Plan](docs/modeling.md)
 - [Monitoring Plan](docs/monitoring.md)
 - [Deployment Plan](docs/deployment.md)
