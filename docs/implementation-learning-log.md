@@ -149,3 +149,41 @@ This document records implementation task summaries for learning and review.
 - Early metric helpers should stay small and deterministic so later model-selection logic can compose them without hidden state.
 - Calibration and uncertainty wrappers should fail loudly when used before fitting.
 - Prediction sets are a clearer handoff to policy logic than forcing uncertainty into a single probability threshold.
+
+## Task 5: Model Artifacts, Training Smoke Pipeline, And Reason Codes
+
+**What changed**
+
+- Added model artifact metadata, save/load helpers, and a `ModelBundle` prediction wrapper.
+- Replaced the initial `fraud-train` placeholder with a synthetic logistic-regression smoke training pipeline.
+- Restored `make train-smoke` to run the real synthetic training command.
+- Added a deterministic fallback reason-code helper for early analyst-facing explanations.
+- Added tests for loadable model bundles, raw probability prediction, and stable reason codes.
+
+**Problems faced**
+
+- Task 1 intentionally made `train-smoke` fail until this task owned real training artifacts.
+- The smoke pipeline needed to create a real serialized model without pulling in the full IEEE-CIS data path too early.
+- Reason codes need to be analyst-readable now, while SHAP-based explanations remain a later project slice.
+
+**Solutions applied**
+
+- Used a tiny synthetic tabular dataset and a scikit-learn `Pipeline` with `ColumnTransformer`, `OneHotEncoder`, and `LogisticRegression`.
+- Stored metadata separately from the pickled model so downstream services can inspect model/version/schema information.
+- Implemented fallback reason codes from stable feature names and simple risk heuristics.
+- Kept Venn-Abers out of this slice; it remains a later challenger calibration method once real validation/calibration splits exist.
+
+**Verification performed**
+
+- `uv run pytest tests/test_training.py tests/test_explain.py -q`
+- `uv run pytest -q`
+- `uv run ruff check src tests`
+- `git diff --check`
+- `uv run fraud-train --synthetic --output-dir artifacts/model/latest`
+- `make train-smoke`
+
+**Reusable learnings**
+
+- Smoke training should produce real artifacts, even when the model is deliberately simple.
+- Artifact metadata should be first-class so serving, monitoring, and dashboard slices can report model governance fields without loading training code.
+- A deterministic fallback explanation path is useful before SHAP artifacts are available.
