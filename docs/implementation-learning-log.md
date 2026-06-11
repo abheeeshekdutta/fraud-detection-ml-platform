@@ -187,3 +187,38 @@ This document records implementation task summaries for learning and review.
 - Smoke training should produce real artifacts, even when the model is deliberately simple.
 - Artifact metadata should be first-class so serving, monitoring, and dashboard slices can report model governance fields without loading training code.
 - A deterministic fallback explanation path is useful before SHAP artifacts are available.
+
+## Task 6: Scoring Engine Shared By API And Kafka
+
+**What changed**
+
+- Added `ScoringEngine` to load a model bundle and apply the decision policy to a transaction event.
+- Added conversion from `TransactionEvent` payloads into model feature rows.
+- Added shared decision-event construction with model version, feature schema version, decision policy version, raw/calibrated probability, conformal prediction set, reason codes, and latency.
+- Added a focused scoring test using the synthetic model artifact from Task 5.
+
+**Problems faced**
+
+- The first focused test run failed as expected because `fraud_platform.scoring` did not exist yet.
+- The scoring slice needed to stay simple: calibrated probability currently equals raw probability, and the prediction set is threshold-derived until later calibration/conformal artifacts are wired in.
+- Ruff flagged one long test line after the first green run.
+
+**Solutions applied**
+
+- Implemented a small scoring engine that depends only on existing contracts, artifacts, reason-code fallback, and policy logic.
+- Kept `_simple_prediction_set()` explicit so later calibration/conformal implementations can replace it cleanly.
+- Wrapped the long policy construction line and reran verification.
+
+**Verification performed**
+
+- `uv run pytest tests/test_scoring.py -q`
+- `uv run pytest -q`
+- `uv run ruff check src tests`
+- `git diff --check`
+- Manual smoke to train a temporary synthetic model, score a transaction, and serialize the resulting `DecisionEvent`.
+
+**Reusable learnings**
+
+- A shared scoring engine keeps API and Kafka consumers from duplicating model loading, feature mapping, policy application, and governance metadata.
+- Early scoring slices can use simple uncertainty logic if the interface preserves where calibrated and conformal artifacts will plug in later.
+- Scoring output should be validated as a serializable contract object before downstream storage or dashboard work begins.
