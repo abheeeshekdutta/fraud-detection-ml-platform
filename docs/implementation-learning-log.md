@@ -115,3 +115,37 @@ This document records implementation task summaries for learning and review.
 - Feature/event builders should normalize pandas scalar values before handing data to strict boundary contracts.
 - Keeping offline and replay feature helpers small makes it easier to verify missing-enrichment behavior without the full IEEE-CIS dataset.
 - Time-aware split tests should assert ordering between split windows, not just row counts.
+
+## Task 4: Metrics, Calibration, And Conformal Utilities
+
+**What changed**
+
+- Added model metric helpers for recall at minimum precision, expected fraud utility, and calibration error.
+- Added `ProbabilityCalibrator` with isotonic and Platt scaling modes.
+- Added `SplitConformalClassifier` for split-conformal prediction sets over fraud probabilities.
+- Added focused tests for metric calculations, calibration output bounds, and conformal prediction-set behavior.
+
+**Problems faced**
+
+- The first focused test run failed as expected because `metrics`, `calibration`, and `conformal` modules did not exist yet.
+- The conformal helper needed to return operationally meaningful ambiguous sets for borderline probabilities, not just a single hard label.
+
+**Solutions applied**
+
+- Implemented small, dependency-light wrappers around scikit-learn primitives where appropriate.
+- Kept conformal behavior explicit: fit stores a nonconformity threshold, and prediction returns `legit`, `fraud`, or `legit, fraud` sets.
+- Added runtime guards so calibrator and conformal prediction calls fail clearly before fitting.
+
+**Verification performed**
+
+- `uv run pytest tests/test_metrics.py tests/test_calibration_conformal.py -q`
+- `uv run pytest -q`
+- `uv run ruff check src tests`
+- `git diff --check`
+- Manual smoke for invalid calibrator method, unfitted calibrator, invalid conformal alpha, and unfitted conformal predictor.
+
+**Reusable learnings**
+
+- Early metric helpers should stay small and deterministic so later model-selection logic can compose them without hidden state.
+- Calibration and uncertainty wrappers should fail loudly when used before fitting.
+- Prediction sets are a clearer handoff to policy logic than forcing uncertainty into a single probability threshold.
