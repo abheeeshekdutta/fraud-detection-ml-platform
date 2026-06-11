@@ -370,3 +370,35 @@ This document records implementation task summaries for learning and review.
 - Streaming code is easier to test when Kafka clients are passed into small helper functions instead of hidden inside loops.
 - Test doubles should honor real project contracts; returning a dict hid an unrealistic behavior that Pydantic serialization correctly rejected.
 - A runbook should be created as soon as multiple scripts exist, otherwise the project becomes hard to operate even when the code works.
+
+## Task 10: Monitoring Calculations And Alert Emission
+
+**What changed**
+
+- Replaced the monitoring placeholder with calculation helpers for missingness rate, conformal coverage, and decision-rate shift alerts.
+- Added tests for column-level missingness, conformal coverage, positive alert emission, and quiet behavior below threshold.
+- Kept the `fraud-monitor` entrypoint as a placeholder for the later scheduled worker/compose wiring.
+
+**Problems faced**
+
+- The first focused monitoring test failed as expected because the module did not expose the requested functions.
+- Alert outputs need to be contract-compatible with the storage and dashboard slices, not just raw dictionaries.
+
+**Solutions applied**
+
+- Returned `AlertEvent` from the decision-rate shift detector so alerts can be saved through the existing repository later.
+- Included reference and current review rates in alert metadata for analyst/debug visibility.
+- Kept the calculations pure and dataframe-based so they can be reused by batch jobs, scheduled workers, or tests.
+
+**Verification performed**
+
+- `uv run pytest tests/test_monitoring.py -q`
+- `uv run pytest -q`
+- `uv run ruff check src tests scripts`
+- `git diff --check`
+
+**Reusable learnings**
+
+- Monitoring checks are easiest to trust when the metric calculation and alert thresholding are separated into small pure functions.
+- Alerts should use the same project contract as runtime events so storage, dashboards, and future Kafka publication do not need adapters.
+- A conformal coverage monitor directly connects delayed labels back to the uncertainty layer, which is important for fraud review quality.
