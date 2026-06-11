@@ -80,3 +80,38 @@ This document records implementation task summaries for learning and review.
 - Boundary contracts need both strict internal validation and a deliberate JSON ingress path.
 - Anything accepted by API/Kafka/storage-facing models should be safely serializable before it crosses process boundaries.
 - Decision policy validation should fail close to the decision point rather than relying on a later event schema to catch bad inputs.
+
+## Task 3: IEEE-CIS Loading, Time Split, And Feature Transformations
+
+**What changed**
+
+- Added `configs/feature_schema_v1.yaml` to define the first serving-safe feature groups and excluded leakage fields.
+- Added IEEE-CIS helper functions for transaction/identity joins, basic training-frame validation, time-ordered splits, and replay event construction.
+- Added a shared `FraudFeatureTransformer` with stable feature column ordering and categorical conversion.
+- Added focused tests for missing identity preservation, time-aware splits, validation, transformation output, and serving event mapping.
+
+**Problems faced**
+
+- The first focused test run failed as expected because the `fraud_platform.features` package did not exist yet.
+- Ruff flagged a quoted return annotation in the transformer after implementation.
+- Task 2's strict contracts meant event construction had to convert pandas/numpy scalar values into native JSON-safe Python values.
+
+**Solutions applied**
+
+- Created the feature package only after observing the red test.
+- Removed the unnecessary quoted annotation and reran lint.
+- Added `_clean_mapping()` to drop missing enrichment values and convert pandas/numpy scalar values with `.item()` before creating `TransactionEvent`.
+
+**Verification performed**
+
+- `uv run pytest tests/test_features.py -q`
+- `uv run pytest -q`
+- `uv run ruff check src tests`
+- `git diff --check`
+- Manual smoke to serialize a built `TransactionEvent`, inspect split ordering, and inspect transformer dtypes.
+
+**Reusable learnings**
+
+- Feature/event builders should normalize pandas scalar values before handing data to strict boundary contracts.
+- Keeping offline and replay feature helpers small makes it easier to verify missing-enrichment behavior without the full IEEE-CIS dataset.
+- Time-aware split tests should assert ordering between split windows, not just row counts.
