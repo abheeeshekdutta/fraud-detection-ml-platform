@@ -258,3 +258,38 @@ This document records implementation task summaries for learning and review.
 - App factories make service tests much cleaner because expensive runtime dependencies can be injected.
 - Reusing strict contracts at the API boundary gives immediate 422 responses for malformed scoring payloads.
 - Metrics endpoints should be present early so service behavior can be observed as soon as the app runs.
+
+## Task 8: Prediction And Alert Storage
+
+**What changed**
+
+- Added SQLAlchemy table definitions for prediction records and alert records.
+- Added repository helpers for saving and reading latest prediction and alert rows.
+- Added SQLite-backed unit tests for repository round trips.
+- Added Task 8.5 to the implementation plan for IEEE-CIS EDA and data profiling before real model training.
+
+**Problems faced**
+
+- The first focused storage test failed as expected because repository/storage modules did not exist yet.
+- Storage needs to preserve JSON fields such as conformal prediction sets, reason codes, and alert metadata for later dashboard and monitoring slices.
+- The project plan needed an explicit EDA slice so full IEEE-CIS modeling is evidence-driven.
+
+**Solutions applied**
+
+- Used SQLAlchemy ORM models with JSON columns for structured prediction and alert metadata.
+- Kept repository methods small: `save()` for upsert-like persistence and `latest()` for dashboard-friendly retrieval.
+- Verified ordering by timestamp and JSON field round trips with a manual in-memory SQLite smoke.
+
+**Verification performed**
+
+- `uv run pytest tests/test_storage.py -q`
+- `uv run pytest -q`
+- `uv run ruff check src tests`
+- `git diff --check`
+- Manual SQLite smoke for prediction ordering, reason-code JSON, and alert metadata JSON.
+
+**Reusable learnings**
+
+- Prediction storage should persist governance metadata beside every score so downstream audit and dashboard views do not depend on model internals.
+- JSON columns are useful for flexible reason codes and alert metadata, but strict upstream contracts are what keep them safe.
+- EDA deserves its own reproducible slice before full benchmark modeling, not just an informal notebook afterthought.

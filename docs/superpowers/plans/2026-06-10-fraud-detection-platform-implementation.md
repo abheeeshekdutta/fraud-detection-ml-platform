@@ -2099,6 +2099,32 @@ git add src/fraud_platform/storage.py src/fraud_platform/repositories.py tests/t
 git commit -m "feat: add prediction and alert storage"
 ```
 
+## Task 8.5: IEEE-CIS EDA And Data Profiling
+
+**Files:**
+
+- Create: `scripts/profile_ieee_cis.py`
+- Create: `docs/data-profile.md`
+- Create: `reports/eda/.gitkeep`
+- Test: `tests/test_data_profile.py`
+
+**Goal:** Add a reproducible exploratory data analysis slice before full IEEE-CIS model training so modeling choices are evidence-based.
+
+**Scope:**
+
+- Load IEEE-CIS transaction and identity CSV files from `data/raw`.
+- Profile label imbalance, transaction amount distribution, ProductCD fraud rates, identity join coverage, missingness by feature group, categorical cardinality, and time-window fraud-rate drift over `TransactionDT`.
+- Check for target leakage risks and serving-incompatible fields.
+- Write summary tables/charts under `reports/eda/`.
+- Write human-readable findings and feature recommendations in `docs/data-profile.md`.
+
+**Acceptance Criteria:**
+
+- The profiling script must run without paid services or notebooks.
+- If raw data is missing, the script must exit with a clear message explaining the expected files.
+- Tests must cover summary calculations using synthetic data fixtures.
+- The output must explain how EDA informs CatBoost/LightGBM feature selection and calibration strategy.
+
 ## Task 9: Kafka Replay Producer And Fraud Consumer
 
 **Files:**
