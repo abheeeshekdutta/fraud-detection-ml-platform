@@ -1,0 +1,4 @@
+version: v1
+approve_threshold: 0.20
+block_threshold: 0.80
+conformal_alpha: 0.10

@@ -70,10 +70,31 @@ data validation + time-aware split
                                              +--> React operations dashboard
 ```
 
+## Quickstart
+
+1. Install Python 3.11 and `uv`.
+2. Copy `.env.example` to `.env`.
+3. Run `uv sync --extra dev`.
+4. Run `uv run fraud-train --synthetic --output-dir artifacts/model/latest`.
+5. Run `docker compose up --build`.
+6. Open:
+   - dashboard: `http://localhost:5173`
+   - fraud API: `http://localhost:8000/docs`
+   - MLflow: `http://localhost:5000`
+   - Grafana: `http://localhost:3000`
+   - Prometheus: `http://localhost:9090`
+
+The current synthetic model is a smoke-test artifact so the platform can run end to end before the
+full IEEE-CIS benchmark training slice is implemented.
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)
 - [Data Contracts](docs/data-contracts.md)
+- [Execution Runbook](docs/execution-runbook.md)
+- [Operator Runbook](docs/runbook.md)
+- [Demo Script](docs/demo-script.md)
+- [IEEE-CIS Data Profile](docs/data-profile.md)
 - [Modeling Plan](docs/modeling.md)
 - [Monitoring Plan](docs/monitoring.md)
 - [Deployment Plan](docs/deployment.md)
@@ -82,4 +103,14 @@ data validation + time-aware split
 
 ## Status
 
-Design and project scaffold are in progress. Implementation will follow the approved design.
+The local production-shaped platform is implemented through the first end-to-end smoke path:
+
+- strict event contracts
+- feature pipeline foundation
+- model artifact packaging
+- scoring API
+- Kafka replay and consumer skeleton
+- prediction and alert storage schema
+- monitoring calculations
+- React operations dashboard
+- Docker Compose observability stack

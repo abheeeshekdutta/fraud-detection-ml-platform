@@ -1,0 +1,23 @@
+version: v1
+label_column: isFraud
+event_time_column: TransactionDT
+join_key: TransactionID
+amount_column: TransactionAmt
+product_column: ProductCD
+serving_features:
+  base:
+    - TransactionAmt
+    - ProductCD
+  card:
+    - card1
+  address:
+    - addr1
+  email_domain:
+    - P_emaildomain
+  identity:
+    - DeviceType
+    - id_31
+excluded_from_serving:
+  - isFraud
+  - TransactionDT
+  - TransactionID

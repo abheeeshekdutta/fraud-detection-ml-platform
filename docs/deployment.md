@@ -16,7 +16,7 @@ Docker Desktop is not required.
 
 ## Services
 
-Planned Docker Compose services:
+Docker Compose services:
 
 - `kafka`
 - `postgres`
@@ -35,9 +35,11 @@ Use Apache Kafka in KRaft mode.
 
 Do not use Redpanda in the default stack. Redpanda is convenient and Kafka-compatible, but the project should avoid source-available licensing ambiguity and use Apache Kafka directly.
 
+The local Compose stack uses Confluent's `cp-kafka` image because it is an official Apache Kafka image for Confluent Platform and supports local KRaft mode. Bitnami's public Kafka image availability changed, so it is not used as the default.
+
 ## Local Ports
 
-Planned defaults:
+Defaults:
 
 - dashboard: `localhost:5173`
 - fraud API: `localhost:8000`
@@ -57,6 +59,31 @@ Use environment variables and checked-in example files:
 - topic configuration YAML
 
 Secrets are not expected for the local project.
+
+Before starting the full stack, create the current smoke model artifact:
+
+```bash
+uv run fraud-train --synthetic --output-dir artifacts/model/latest
+```
+
+Then start the local services:
+
+```bash
+docker compose up --build
+```
+
+## Health Checks
+
+After the stack starts, check:
+
+- API: `curl http://localhost:8000/health`
+- API docs: `http://localhost:8000/docs`
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3000`
+- Dashboard: `http://localhost:5173`
+
+If Docker Compose is unavailable on the local machine, the checked-in deployment tests still parse
+the Compose, Prometheus, Grafana, and Postgres configuration files.
 
 ## Cost
 

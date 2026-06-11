@@ -5,27 +5,20 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
+.superpowers/
 .mypy_cache/
 .ipynb_checkpoints/
+.coverage
+htmlcov/
+coverage/
 
-# Data and model artifacts
 data/raw/
 data/interim/
 data/processed/
-models/
-mlruns/
 artifacts/
+mlruns/
+reports/generated/
 
-# Local service state
-postgres-data/
-kafka-data/
-grafana-data/
-prometheus-data/
-
-# Frontend
 node_modules/
-dist/
-coverage/
-
-# Local brainstorming artifacts
-.superpowers/
+dashboard/dist/
+dashboard/coverage/

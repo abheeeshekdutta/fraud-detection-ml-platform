@@ -1,0 +1,16 @@
+topics:
+  transaction-events:
+    partitions: 3
+    replication_factor: 1
+  fraud-decisions:
+    partitions: 3
+    replication_factor: 1
+  fraud-labels:
+    partitions: 1
+    replication_factor: 1
+  model-alerts:
+    partitions: 1
+    replication_factor: 1
+  dead-letter-events:
+    partitions: 1
+    replication_factor: 1
