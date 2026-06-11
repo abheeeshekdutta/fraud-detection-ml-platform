@@ -132,6 +132,31 @@ Expected output after that wiring exists:
 - Rows in the `predictions` table.
 - Rows in the `alerts` table.
 
+## 9. Run The Fraud Operations Dashboard
+
+```bash
+cd dashboard
+npm install
+npm run dev -- --host 127.0.0.1
+```
+
+Expected runtime URL:
+
+- `http://127.0.0.1:5173/`
+
+Expected UI:
+
+- KPI strip for approve, review, block, and p95 latency.
+- Decision feed table with transaction ID, decision, probability, uncertainty, latency, and model.
+- Alerts panel.
+- Transaction detail drawer with calibrated probability, conformal set, policy/schema versions, and
+  reason codes.
+
+Purpose:
+
+- Give fraud analysts a local operations console for inspecting model decisions and alert status.
+- Use fallback demo data when backend prediction and alert endpoints are not available yet.
+
 ## Current Sequence Summary
 
 ```text
@@ -146,4 +171,6 @@ manual Kaggle download
   -> Kafka transaction-events
   -> uv run fraud-consumer
   -> Kafka fraud-decisions
+  -> cd dashboard && npm run dev -- --host 127.0.0.1
+  -> browser dashboard at http://127.0.0.1:5173/
 ```

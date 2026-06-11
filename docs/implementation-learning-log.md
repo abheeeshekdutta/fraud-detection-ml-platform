@@ -402,3 +402,46 @@ This document records implementation task summaries for learning and review.
 - Monitoring checks are easiest to trust when the metric calculation and alert thresholding are separated into small pure functions.
 - Alerts should use the same project contract as runtime events so storage, dashboards, and future Kafka publication do not need adapters.
 - A conformal coverage monitor directly connects delayed labels back to the uncertainty layer, which is important for fraud review quality.
+
+## Task 11: React Fraud Operations Dashboard
+
+**What changed**
+
+- Added a Vite, React, and TypeScript dashboard under `dashboard/`.
+- Implemented the approved Analyst Queue layout with a KPI strip, decision feed, alerts panel, and transaction detail drawer.
+- Added a dashboard API client for prediction and alert endpoints.
+- Added fallback demo data so the UI remains usable before backend dashboard endpoints are wired.
+- Added a Vitest render test for the dashboard shell.
+- Updated the execution runbook with dashboard startup steps and expected UI outputs.
+
+**Problems faced**
+
+- The first dashboard test failed because Vitest needed a jsdom browser-like environment.
+- TypeScript did not recognize Vite's `import.meta.env` until Vite client types were added.
+- The dashboard initially produced unhandled fetch failures when the local API was not running.
+- `npm audit` found a critical Vitest advisory in the original scaffold version.
+
+**Solutions applied**
+
+- Added `vite.config.ts` with the React plugin and jsdom test environment.
+- Added Vite environment typing through `src/vite-env.d.ts`.
+- Made the API client return empty arrays when backend requests fail, allowing fallback data to render cleanly.
+- Upgraded Vitest to `4.1.8`, which cleared the audit report.
+- Added `.superpowers/` to `.gitignore` because the visual companion creates local design-session files.
+
+**Verification performed**
+
+- `npm run test`
+- `npm run build`
+- `npm audit --audit-level=moderate`
+- `uv run pytest -q`
+- `uv run ruff check src tests scripts`
+- `git diff --check`
+- Browser preview at `http://127.0.0.1:5173/`
+- Browser interaction check for opening the transaction detail drawer.
+
+**Reusable learnings**
+
+- Frontend tests need the same browser assumptions as the components; React render tests should declare jsdom explicitly.
+- Local dashboards should handle offline backend endpoints as a normal development state, not as an unhandled error.
+- Checking dependency audit output during scaffold creation is cheaper than cleaning up a vulnerable lockfile later.
