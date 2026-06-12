@@ -21,6 +21,11 @@ Use `uv` for Python environment and dependency management.
 
 ## Candidate Models
 
+Detailed modeling logs:
+
+- [Feature Engineering](feature-engineering.md)
+- [Hyperparameter Tuning](hyperparameter-tuning.md)
+
 ### Baseline
 
 - Logistic regression with simple preprocessing

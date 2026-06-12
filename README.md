@@ -159,6 +159,8 @@ MLflow, start the local MLflow service first and pass `--mlflow-tracking-uri htt
 - [IEEE-CIS Data Profile](docs/data-profile.md)
 - [IEEE-CIS Findings And Baseline Analysis](docs/ieee-cis-analysis.md)
 - [Modeling Plan](docs/modeling.md)
+- [Feature Engineering](docs/feature-engineering.md)
+- [Hyperparameter Tuning](docs/hyperparameter-tuning.md)
 - [Monitoring Plan](docs/monitoring.md)
 - [Deployment Plan](docs/deployment.md)
 - [Model Card](docs/model-card.md)

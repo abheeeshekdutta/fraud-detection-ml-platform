@@ -721,3 +721,35 @@ This document records implementation task summaries for learning and review.
 - MLflow runs need both metrics and hyperparameters to support reproducible model comparison.
 - Random cross-validation is usually the wrong default for transaction fraud; time-aware folds are a
   better baseline even before full backtesting is implemented.
+
+## Task 19: Feature Engineering And Hyperparameter Documentation
+
+**What changed**
+
+- Added `docs/feature-engineering.md` to track current features, transformations, rationale, results,
+  leakage rules, planned features, and open questions.
+- Added `docs/hyperparameter-tuning.md` to track default parameters, MLflow logging, tuning strategy,
+  search spaces, current benchmark results, and planned tuning work.
+- Linked both docs from README and the modeling plan.
+
+**Problems faced**
+
+- Feature engineering and tuning decisions were spread across code, benchmark docs, and conversation
+  context.
+- The project needed a clear record of what has been implemented versus what remains planned.
+
+**Solutions applied**
+
+- Created living docs that separate current state, results, reasons, notes, and next steps.
+- Explicitly documented that the current benchmark results are first-pass and untuned.
+- Added leakage rules before implementing richer aggregate features.
+
+**Verification performed**
+
+- Reviewed current training code, feature transformer, modeling docs, and benchmark results.
+- Ran markdown/diff checks before committing this documentation-only slice.
+
+**Reusable learnings**
+
+- ML projects need decision logs for features and tuning, not just metrics tables.
+- Writing leakage rules before feature expansion helps prevent accidental future-information leakage.
