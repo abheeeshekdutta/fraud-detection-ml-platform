@@ -2,9 +2,72 @@
 
 ## Goal
 
-Build a local, production-shaped fraud detection platform that scores transactions in near real time, explains risk decisions, and monitors model health over time.
+This document describes a local fraud detection platform that scores transactions in near real time, explains risk decisions, and monitors model health over time.
 
-The project should look like a credible internal ML system, not a notebook-only analysis.
+The architecture separates offline model development, online scoring, monitoring, and analyst review into distinct components.
+
+## Event Flow
+
+```mermaid
+flowchart TB
+    raw["IEEE-CIS transaction<br/>and identity files"]
+    split["Validation +<br/>time-aware split"]
+    replay["Transaction producer<br/>holdout replay"]
+    transaction_events[["Kafka<br/>transaction-events"]]
+    consumer["Fraud consumer<br/>stream scoring"]
+    policy{"Decision policy<br/>approve / review / block"}
+    fraud_decisions[["Kafka<br/>fraud-decisions"]]
+    postgres[("Postgres<br/>predictions + alerts")]
+    dashboard["React operations console<br/>analyst review"]
+
+    raw --> split --> replay --> transaction_events --> consumer --> policy --> fraud_decisions
+    fraud_decisions --> postgres --> dashboard
+    fraud_decisions --> dashboard
+
+    mlflow["MLflow<br/>experiments + registry"]
+    artifacts["Local artifact bundle<br/>artifacts/model/latest"]
+    model["Active model bundle<br/>features + calibration + SHAP"]
+    api["Fraud API<br/>synchronous scoring"]
+    api_policy{"API decision policy<br/>same approve / review / block rules"}
+    checkout["Checkout or analyst workflow"]
+
+    mlflow --> artifacts --> model
+    model --> consumer
+    model --> api
+    checkout --> api --> api_policy
+    api_policy --> postgres
+    policy --> postgres
+
+    fraud_labels[["Kafka<br/>fraud-labels"]]
+    monitor["Monitoring worker<br/>drift + quality checks"]
+    model_alerts[["Kafka<br/>model-alerts"]]
+    dead_letters[["Kafka<br/>dead-letter-events"]]
+    prometheus["Prometheus<br/>API metrics"]
+    grafana["Grafana<br/>observability dashboards"]
+
+    transaction_events -. invalid payload .-> dead_letters
+    fraud_decisions --> monitor
+    fraud_labels --> monitor
+    monitor --> model_alerts
+    monitor --> postgres
+    monitor -. health feedback .-> mlflow
+    model_alerts --> dashboard
+    api --> prometheus --> grafana
+
+    classDef dataNode fill:#e0f2fe,stroke:#0284c7,color:#0f172a,stroke-width:1.5px
+    classDef kafkaNode fill:#ffedd5,stroke:#ea580c,color:#0f172a,stroke-width:1.5px
+    classDef serviceNode fill:#f5f3ff,stroke:#7c3aed,color:#0f172a,stroke-width:1.5px
+    classDef decisionNode fill:#fee2e2,stroke:#dc2626,color:#0f172a,stroke-width:1.5px
+    classDef storeNode fill:#fef9c3,stroke:#ca8a04,color:#0f172a,stroke-width:1.5px
+    classDef opsNode fill:#f1f5f9,stroke:#475569,color:#0f172a,stroke-width:1.5px
+
+    class raw,split,replay dataNode
+    class transaction_events,fraud_decisions,fraud_labels,model_alerts,dead_letters kafkaNode
+    class consumer,api,checkout,model serviceNode
+    class policy,api_policy decisionNode
+    class mlflow,artifacts,postgres storeNode
+    class monitor,prometheus,grafana,dashboard opsNode
+```
 
 ## Major Components
 

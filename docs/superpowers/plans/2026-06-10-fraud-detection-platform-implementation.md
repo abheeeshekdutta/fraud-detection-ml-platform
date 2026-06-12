@@ -3649,7 +3649,7 @@ Run `docker compose up --build` to start the local stack.
 - If Postgres tables are missing, run `docker compose down -v` and start the stack again.
 ```
 
-- [ ] **Step 3: Create recruiter demo script**
+- [ ] **Step 3: Create local walkthrough script**
 
 Create `docs/demo-script.md`:
 

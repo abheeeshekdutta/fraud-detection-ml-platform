@@ -4,7 +4,7 @@ Date: 2026-06-10
 
 ## Summary
 
-Build a flagship, production-ready fraud detection project for mid-level data science recruiting.
+Build a local fraud detection platform for real-time transaction scoring, monitoring, and analyst review.
 
 The project will use historical IEEE-CIS fraud data to train a tabular ML model, then replay held-out transactions through Apache Kafka to simulate real-time payment traffic. A scoring service will classify each transaction as `approve`, `review`, or `block`, with calibrated probabilities, conformal uncertainty, and SHAP-based reason codes.
 
@@ -13,7 +13,7 @@ The entire system must run locally with free/open-source tooling and no required
 ## Goals
 
 - Show production ML judgment beyond notebook modeling.
-- Demonstrate real-time event-driven scoring with Apache Kafka.
+- Support real-time event-driven scoring with Apache Kafka.
 - Use strong classical tabular models, especially CatBoost and LightGBM.
 - Include calibration, thresholding, and conformal uncertainty.
 - Provide practical explainability for fraud analysts.
@@ -206,7 +206,7 @@ Required test categories:
 
 ## Success Criteria
 
-The final project should let a recruiter or hiring manager:
+The final project should let a user:
 
 - run the stack locally
 - see transactions flowing through Kafka

@@ -492,7 +492,7 @@ This document records implementation task summaries for learning and review.
 - Added a README quickstart with local startup commands and key service URLs.
 - Updated README status to reflect the implemented smoke-path platform pieces.
 - Added `docs/runbook.md` for local startup, health checks, and common operational issues.
-- Added `docs/demo-script.md` for a recruiter/interviewer walkthrough.
+- Added `docs/demo-script.md` for a local system walkthrough.
 - Updated the model card with implemented artifact metadata.
 - Added deployment health checks and clarified that config tests still run when Docker is unavailable.
 
@@ -504,7 +504,7 @@ This document records implementation task summaries for learning and review.
 **Solutions applied**
 
 - Documented the smoke training command as the prerequisite before starting the full stack.
-- Separated operator troubleshooting guidance from the recruiter-facing demo flow.
+- Separated operator troubleshooting guidance from the local walkthrough flow.
 - Kept the README quickstart short and linked deeper docs for details.
 
 **Verification performed**
@@ -519,7 +519,7 @@ This document records implementation task summaries for learning and review.
 
 - A final polish slice should make the project teachable, not just runnable.
 - Documentation should clearly distinguish smoke-test artifacts from final modeling goals so readers do not overestimate current model maturity.
-- Demo scripts help turn engineering work into a coherent story for portfolio reviews and interviews.
+- Walkthrough scripts help make system behavior easier to verify and explain.
 
 ## Task 14: IEEE-CIS Processing And Baseline Training Foundation
 

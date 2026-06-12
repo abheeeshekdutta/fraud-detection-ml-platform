@@ -98,4 +98,4 @@ The project should not require:
 - paid APIs
 - paid Docker Desktop subscription
 
-The user may optionally deploy to cloud later, but that is out of scope for the default flagship project.
+Cloud deployment can be added later, but the default setup is local and self-hosted.
