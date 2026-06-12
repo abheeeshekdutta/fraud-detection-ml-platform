@@ -8,6 +8,7 @@ from fraud_platform.metrics import (
     evaluate_threshold_grid,
     expected_fraud_utility,
     recall_at_min_precision,
+    select_constrained_thresholds,
 )
 
 
@@ -77,6 +78,44 @@ def test_evaluate_threshold_grid_sorts_by_expected_utility() -> None:
     assert reports[0]["approve_threshold"] == 0.4
     assert reports[0]["block_threshold"] == 0.9
     assert reports[0]["expected_utility"] == 90.0
+
+
+def test_select_constrained_thresholds_filters_unacceptable_operating_points() -> None:
+    reports = [
+        {
+            "approve_threshold": 0.4,
+            "block_threshold": 0.5,
+            "expected_utility": 200.0,
+            "false_block_rate": 0.20,
+            "review_rate": 0.05,
+            "block_precision": 0.10,
+        },
+        {
+            "approve_threshold": 0.3,
+            "block_threshold": 0.8,
+            "expected_utility": 120.0,
+            "false_block_rate": 0.03,
+            "review_rate": 0.25,
+            "block_precision": 0.45,
+        },
+        {
+            "approve_threshold": 0.2,
+            "block_threshold": 0.9,
+            "expected_utility": 90.0,
+            "false_block_rate": 0.01,
+            "review_rate": 0.40,
+            "block_precision": 0.60,
+        },
+    ]
+
+    selected = select_constrained_thresholds(
+        reports,
+        max_false_block_rate=0.05,
+        max_review_rate=0.30,
+        min_block_precision=0.40,
+    )
+
+    assert selected is reports[1]
 
 
 def test_calibration_error_bins_probabilities() -> None:

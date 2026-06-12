@@ -47,7 +47,10 @@ uv run fraud-thresholds \
   --block-thresholds 0.05,0.08,0.10,0.15,0.20,0.30 \
   --fraud-loss 500 \
   --review-cost 5 \
-  --false-block-cost 25
+  --false-block-cost 25 \
+  --max-false-block-rate 0.02 \
+  --max-review-rate 0.30 \
+  --min-block-precision 0.20
 ```
 
 The report is generated locally under `reports/generated/` and is not committed.

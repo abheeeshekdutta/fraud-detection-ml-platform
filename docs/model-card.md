@@ -124,5 +124,12 @@ illustrative costs of `fraud_loss=500`, `review_cost=5`, and `false_block_cost=2
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 0.04 | 0.05 | 74.32% | 6.45% | 19.23% | 9.57% | 56.46% | 17.98% |
 
-This operating point is useful for comparison, not deployment. The false-block rate is too high for
-a real payment policy without explicit business constraints and segment review.
+With constraints of `max_false_block_rate=0.02`, `max_review_rate=0.30`, and
+`min_block_precision=0.20`, the selected point changes:
+
+| Approve threshold | Block threshold | Approve rate | Review rate | Block rate | Block precision | Block recall | False block rate |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.04 | 0.15 | 74.32% | 23.67% | 2.02% | 24.26% | 15.00% | 1.58% |
+
+These operating points are useful for comparison, not deployment. Thresholds should be rerun after
+probability calibration and checked by segment before promotion.

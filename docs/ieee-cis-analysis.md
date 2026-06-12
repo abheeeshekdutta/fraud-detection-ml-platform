@@ -142,15 +142,22 @@ Top utility point from the searched grid:
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 0.04 | 0.05 | 74.32% | 6.45% | 19.23% | 9.57% | 56.46% | 17.98% |
 
-This is not a production recommendation. It shows that under high fraud-loss assumptions, unconstrained
-utility optimization can choose an aggressive block policy with an unacceptable false-block rate.
-The next threshold pass should add business constraints such as minimum block precision, maximum false
-block rate, review capacity, and segment-specific checks.
+Constrained point with `max_false_block_rate=0.02`, `max_review_rate=0.30`, and
+`min_block_precision=0.20`:
+
+| Approve threshold | Block threshold | Approve rate | Review rate | Block rate | Block precision | Block recall | False block rate |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.04 | 0.15 | 74.32% | 23.67% | 2.02% | 24.26% | 15.00% | 1.58% |
+
+This is not a production recommendation. It shows why threshold selection needs business constraints:
+unconstrained utility optimization can choose an aggressive block policy with an unacceptable
+false-block rate. The constrained point is more plausible, but it still needs calibration and segment
+checks before promotion.
 
 ## Recommended Next Modeling Steps
 
-1. Add constrained threshold selection for review capacity and false-block limits.
-2. Fit probability calibration on the calibration split.
+1. Fit probability calibration on the calibration split.
+2. Rerun constrained threshold selection with calibrated probabilities.
 3. Replace the simple conformal prediction set with a validation-backed conformal method.
 4. Add per-segment threshold analysis for `ProductCD`, especially `C` versus `W`.
 5. Measure candidate inference latency before promotion.

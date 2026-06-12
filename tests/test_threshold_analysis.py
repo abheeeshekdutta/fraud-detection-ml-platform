@@ -106,13 +106,24 @@ def test_run_threshold_analysis_writes_sorted_report(tmp_path) -> None:
         review_cost=5.0,
         false_block_cost=25.0,
         top_k=3,
+        max_false_block_rate=0.50,
+        max_review_rate=0.75,
+        min_block_precision=0.0,
     )
 
     saved = json.loads(report_path.read_text())
     assert saved == report
     assert saved["model_version"] == "ieee-logistic-baseline:1"
+    assert saved["constraints"] == {
+        "max_false_block_rate": 0.5,
+        "max_review_rate": 0.75,
+        "min_block_precision": 0.0,
+    }
     assert saved["validation_rows"] == 4
     assert saved["best_thresholds"] == saved["threshold_reports"][0]
+    assert saved["best_constrained_thresholds"] is not None
+    assert saved["best_constrained_thresholds"]["false_block_rate"] <= 0.5
+    assert saved["best_constrained_thresholds"]["review_rate"] <= 0.75
     assert len(saved["threshold_reports"]) == 3
     assert (
         saved["threshold_reports"][0]["expected_utility"]

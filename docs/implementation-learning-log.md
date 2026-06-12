@@ -865,3 +865,41 @@ This document records implementation task summaries for learning and review.
   calibration.
 - Utility-only threshold selection needs business guardrails; otherwise it can optimize for catching
   fraud while creating too many false blocks.
+
+## Task 23: Constrained Threshold Selection
+
+**What changed**
+
+- Added constraint-aware threshold selection on top of the threshold-grid report.
+- Added optional CLI guardrails for maximum false-block rate, maximum review rate, and minimum block
+  precision.
+- Reran the LightGBM threshold report with constraints and updated the runbook, IEEE-CIS analysis,
+  model card, and tuning notes.
+
+**Problems faced**
+
+- The unconstrained utility winner blocked 19.23% of validation transactions and falsely blocked
+  17.98% of legitimate transactions.
+- The project needed a way to reject high-utility but operationally unacceptable threshold pairs.
+
+**Solutions applied**
+
+- Filtered sorted threshold reports by configurable business constraints.
+- Kept both the unconstrained and constrained best points in the JSON report so the tradeoff is
+  visible.
+- Used constraints of `max_false_block_rate=0.02`, `max_review_rate=0.30`, and
+  `min_block_precision=0.20` for the first constrained LightGBM pass.
+
+**Verification performed**
+
+- `uv run fraud-thresholds --processed-dir data/processed --model-dir artifacts/model/candidates/lightgbm-features --output-path reports/generated/lightgbm_threshold_analysis_constrained.json --approve-thresholds 0.01,0.02,0.03,0.04 --block-thresholds 0.05,0.08,0.10,0.15,0.20,0.30 --fraud-loss 500 --review-cost 5 --false-block-cost 25 --max-false-block-rate 0.02 --max-review-rate 0.30 --min-block-precision 0.20 --top-k 10`
+- Constrained selected point: approve threshold 0.04, block threshold 0.15, approve rate 74.32%,
+  review rate 23.67%, block rate 2.02%, block precision 24.26%, block recall 15.00%, false-block
+  rate 1.58%.
+
+**Reusable learnings**
+
+- Keep unconstrained and constrained threshold choices side by side; the gap explains the business
+  cost of guardrails.
+- Constrained threshold results should be rerun after calibration because the current model scores are
+  still raw probabilities.

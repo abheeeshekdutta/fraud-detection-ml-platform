@@ -124,6 +124,23 @@ def evaluate_threshold_grid(
     )
 
 
+def select_constrained_thresholds(
+    reports: list[dict[str, float | int]],
+    max_false_block_rate: float | None = None,
+    max_review_rate: float | None = None,
+    min_block_precision: float | None = None,
+) -> dict[str, float | int] | None:
+    for report in reports:
+        if max_false_block_rate is not None and report["false_block_rate"] > max_false_block_rate:
+            continue
+        if max_review_rate is not None and report["review_rate"] > max_review_rate:
+            continue
+        if min_block_precision is not None and report["block_precision"] < min_block_precision:
+            continue
+        return report
+    return None
+
+
 def calibration_error(y_true: np.ndarray, probabilities: np.ndarray, n_bins: int = 10) -> float:
     bins = np.linspace(0.0, 1.0, n_bins + 1)
     total = len(probabilities)

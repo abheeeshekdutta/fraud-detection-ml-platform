@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from fraud_platform.artifacts import load_model_bundle
-from fraud_platform.metrics import evaluate_threshold_grid
+from fraud_platform.metrics import evaluate_threshold_grid, select_constrained_thresholds
 
 
 def run_threshold_analysis(
@@ -20,6 +20,9 @@ def run_threshold_analysis(
     review_cost: float,
     false_block_cost: float,
     top_k: int,
+    max_false_block_rate: float | None = None,
+    max_review_rate: float | None = None,
+    min_block_precision: float | None = None,
 ) -> dict[str, object]:
     processed_path = Path(processed_dir)
     validation = pd.read_parquet(processed_path / "validation.parquet")
@@ -35,6 +38,11 @@ def run_threshold_analysis(
         false_block_cost=false_block_cost,
     )
     selected_reports = reports[:top_k]
+    constraints = {
+        "max_false_block_rate": max_false_block_rate,
+        "max_review_rate": max_review_rate,
+        "min_block_precision": min_block_precision,
+    }
     report = {
         "model_version": bundle.metadata.model_version,
         "model_type": bundle.metadata.model_type,
@@ -45,7 +53,14 @@ def run_threshold_analysis(
             "review_cost": float(review_cost),
             "false_block_cost": float(false_block_cost),
         },
+        "constraints": constraints,
         "best_thresholds": selected_reports[0] if selected_reports else None,
+        "best_constrained_thresholds": select_constrained_thresholds(
+            reports,
+            max_false_block_rate=max_false_block_rate,
+            max_review_rate=max_review_rate,
+            min_block_precision=min_block_precision,
+        ),
         "threshold_reports": selected_reports,
     }
     output = Path(output_path)
@@ -69,6 +84,9 @@ def main() -> None:
     parser.add_argument("--review-cost", type=float, default=5.0)
     parser.add_argument("--false-block-cost", type=float, default=25.0)
     parser.add_argument("--top-k", type=int, default=10)
+    parser.add_argument("--max-false-block-rate", type=float)
+    parser.add_argument("--max-review-rate", type=float)
+    parser.add_argument("--min-block-precision", type=float)
     args = parser.parse_args()
     run_threshold_analysis(
         processed_dir=args.processed_dir,
@@ -80,6 +98,9 @@ def main() -> None:
         review_cost=args.review_cost,
         false_block_cost=args.false_block_cost,
         top_k=args.top_k,
+        max_false_block_rate=args.max_false_block_rate,
+        max_review_rate=args.max_review_rate,
+        min_block_precision=args.min_block_precision,
     )
 
 
