@@ -126,26 +126,66 @@ def test_train_ieee_baseline_model_logs_mlflow_run(tmp_path) -> None:
     assert len(runs) == 1
     assert runs[0].data.params["model_version"] == "ieee-logistic-baseline:1"
     assert runs[0].data.params["model_candidate"] == "logistic_regression"
+    assert runs[0].data.params["model__max_iter"] == "1000"
     assert "validation_pr_auc" in runs[0].data.metrics
 
 
-@pytest.mark.parametrize(
-    ("model_candidate", "expected_model_type"),
-    [
-        ("catboost", "catboost_ieee_candidate"),
-        ("lightgbm", "lightgbm_ieee_candidate"),
-    ],
-)
 @pytest.mark.filterwarnings("ignore:X does not have valid feature names.*:UserWarning")
-def test_train_ieee_baseline_model_supports_tree_candidates(
-    tmp_path,
-    model_candidate: str,
-    expected_model_type: str,
-) -> None:
+def test_train_ieee_baseline_model_logs_candidate_hyperparameters(tmp_path) -> None:
+    processed_dir = tmp_path / "processed"
+    model_dir = tmp_path / "model"
+    tracking_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
+    processed_dir.mkdir()
+    frame = _candidate_training_frame()
+    frame.iloc[:8].to_parquet(processed_dir / "train.parquet", index=False)
+    frame.iloc[8:].to_parquet(processed_dir / "validation.parquet", index=False)
+
+    train_ieee_baseline_model(
+        processed_dir=processed_dir,
+        output_dir=model_dir,
+        model_candidate="lightgbm",
+        mlflow_tracking_uri=tracking_uri,
+        mlflow_experiment_name="fraud-test",
+    )
+
+    client = MlflowClient(tracking_uri=tracking_uri)
+    experiment = client.get_experiment_by_name("fraud-test")
+    assert experiment is not None
+    runs = client.search_runs([experiment.experiment_id])
+    assert runs[0].data.params["model_candidate"] == "lightgbm"
+    assert runs[0].data.params["model__n_estimators"] == "50"
+    assert runs[0].data.params["model__num_leaves"] == "7"
+    assert runs[0].data.params["model__learning_rate"] == "0.1"
+
+
+@pytest.mark.filterwarnings("ignore:X does not have valid feature names.*:UserWarning")
+def test_train_ieee_baseline_model_records_time_aware_tuning(tmp_path) -> None:
     processed_dir = tmp_path / "processed"
     model_dir = tmp_path / "model"
     processed_dir.mkdir()
-    frame = pd.DataFrame(
+    frame = _candidate_training_frame()
+    frame.iloc[:8].to_parquet(processed_dir / "train.parquet", index=False)
+    frame.iloc[8:].to_parquet(processed_dir / "validation.parquet", index=False)
+
+    metadata = train_ieee_baseline_model(
+        processed_dir=processed_dir,
+        output_dir=model_dir,
+        model_candidate="lightgbm",
+        tune_hyperparameters=True,
+        tuning_splits=2,
+    )
+    training_summary = json.loads((model_dir / "training_summary.json").read_text())
+
+    assert metadata.model_version == "ieee-lightgbm:1"
+    assert training_summary["model_candidate"] == "lightgbm"
+    assert training_summary["tuning"]["strategy"] == "time_series_split_grid_search"
+    assert training_summary["tuning"]["n_splits"] == 2
+    assert len(training_summary["tuning"]["trials"]) > 1
+    assert training_summary["model_params"] == training_summary["tuning"]["best_params"]
+
+
+def _candidate_training_frame() -> pd.DataFrame:
+    return pd.DataFrame(
         {
             "TransactionID": list(range(1, 13)),
             "TransactionDT": list(range(10, 130, 10)),
@@ -237,6 +277,25 @@ def test_train_ieee_baseline_model_supports_tree_candidates(
             "isFraud": [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
         }
     )
+
+
+@pytest.mark.parametrize(
+    ("model_candidate", "expected_model_type"),
+    [
+        ("catboost", "catboost_ieee_candidate"),
+        ("lightgbm", "lightgbm_ieee_candidate"),
+    ],
+)
+@pytest.mark.filterwarnings("ignore:X does not have valid feature names.*:UserWarning")
+def test_train_ieee_baseline_model_supports_tree_candidates(
+    tmp_path,
+    model_candidate: str,
+    expected_model_type: str,
+) -> None:
+    processed_dir = tmp_path / "processed"
+    model_dir = tmp_path / "model"
+    processed_dir.mkdir()
+    frame = _candidate_training_frame()
     frame.iloc[:8].to_parquet(processed_dir / "train.parquet", index=False)
     frame.iloc[8:].to_parquet(processed_dir / "validation.parquet", index=False)
 

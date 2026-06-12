@@ -685,3 +685,39 @@ This document records implementation task summaries for learning and review.
   auditable.
 - Do not promote a candidate just because it wins first-pass metrics; threshold, calibration, latency,
   and segment behavior still need checks.
+
+## Task 18: Hyperparameter Logging And Time-Aware Tuning
+
+**What changed**
+
+- Logged model hyperparameters to MLflow with `model__` parameter names.
+- Added `--tune-hyperparameters` and `--tuning-splits` to the IEEE-CIS training CLI.
+- Added a small time-aware grid search using `TimeSeriesSplit`.
+- Stored selected parameters and fold-level tuning metrics in `training_summary.json`.
+- Updated README, runbook, and modeling plan docs with tuning guidance and remaining ML gaps.
+
+**Problems faced**
+
+- MLflow previously recorded model identity and validation metrics, but not model hyperparameters.
+- The first tuning test failed because the training function had no tuning arguments.
+- LightGBM emits feature-name warnings in small sklearn-pipeline fixtures.
+
+**Solutions applied**
+
+- Added explicit default parameter dictionaries for logistic regression, CatBoost, and LightGBM.
+- Routed candidate construction through parameter dictionaries so defaults, tuning, summaries, and
+  MLflow logging stay aligned.
+- Used time-ordered folds rather than random cross-validation to respect fraud data chronology.
+- Suppressed the known LightGBM fixture warning only in the affected tests.
+
+**Verification performed**
+
+- `uv run pytest tests/test_ieee_pipeline.py::test_train_ieee_baseline_model_logs_candidate_hyperparameters tests/test_ieee_pipeline.py::test_train_ieee_baseline_model_records_time_aware_tuning -q`
+- `uv run pytest tests/test_deployment_config.py tests/test_ieee_pipeline.py tests/test_training.py -q`
+- `uv run ruff check src/fraud_platform/training.py tests/test_ieee_pipeline.py tests/test_deployment_config.py`
+
+**Reusable learnings**
+
+- MLflow runs need both metrics and hyperparameters to support reproducible model comparison.
+- Random cross-validation is usually the wrong default for transaction fraud; time-aware folds are a
+  better baseline even before full backtesting is implemented.

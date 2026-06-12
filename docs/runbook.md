@@ -18,6 +18,13 @@ uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir a
 To benchmark a tree-based candidate, add `--model-candidate catboost` or
 `--model-candidate lightgbm` to the training command.
 
+To run a small time-aware hyperparameter search before fitting the final candidate, add
+`--tune-hyperparameters`:
+
+```bash
+uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir artifacts/model/candidates/lightgbm-tuned --max-train-rows 100000 --model-candidate lightgbm --tune-hyperparameters
+```
+
 To record the baseline run in local MLflow, start MLflow first and rerun the training command with a
 tracking URI:
 

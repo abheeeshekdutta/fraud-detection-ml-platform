@@ -145,8 +145,9 @@ uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir a
 
 The real-data trainer writes a local model bundle to `artifacts/model/latest`. Use
 `--model-candidate catboost` or `--model-candidate lightgbm` to benchmark tree-based candidates
-through the same artifact path. To also log metrics, parameters, and the sklearn model to MLflow,
-start the local MLflow service first and pass `--mlflow-tracking-uri http://localhost:5001`.
+through the same artifact path. Add `--tune-hyperparameters` for a small time-aware grid search
+before fitting the final candidate. To also log metrics, hyperparameters, and the sklearn model to
+MLflow, start the local MLflow service first and pass `--mlflow-tracking-uri http://localhost:5001`.
 
 ## Documentation
 

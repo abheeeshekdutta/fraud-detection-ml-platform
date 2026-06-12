@@ -42,6 +42,10 @@ The IEEE-CIS trainer supports these candidates with `--model-candidate catboost`
 `--model-candidate lightgbm`. Candidate runs use the same feature columns, artifact bundle format,
 validation metrics, and optional MLflow logging path as the logistic baseline.
 
+Use `--tune-hyperparameters` to run a small `TimeSeriesSplit` grid search before fitting the final
+candidate on the full training slice. The current tuning path logs candidate hyperparameters,
+selected parameters, fold metrics, and final validation metrics to MLflow when tracking is enabled.
+
 ### Optional Challenger
 
 - XGBoostClassifier
@@ -122,6 +126,21 @@ Selection criteria:
 - stable conformal behavior
 - inference latency
 - explainability quality
+
+## Remaining Modeling Work
+
+The current project has first-pass candidate training and small time-aware hyperparameter search.
+The following modeling work is still important before treating any model as production-ready:
+
+- richer feature engineering, including amount transformations, identity coverage indicators, and
+  time-based transaction features
+- leakage checks for any aggregate or identity-derived feature
+- class-imbalance handling and threshold optimization for approve/review/block decisions
+- probability calibration on the calibration split
+- conformal uncertainty validation on held-out data
+- segment analysis across product, device, email-domain, and missingness cohorts
+- inference latency measurement for the candidate model bundle
+- SHAP stability checks before exposing reason codes in the dashboard
 
 ## Artifacts
 

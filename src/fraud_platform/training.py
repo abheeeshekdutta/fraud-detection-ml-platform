@@ -13,6 +13,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
+from sklearn.model_selection import TimeSeriesSplit
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
@@ -87,6 +88,8 @@ def train_ieee_baseline_model(
     output_dir: str | Path = "artifacts/model/latest",
     max_train_rows: int | None = None,
     model_candidate: str = "logistic_regression",
+    tune_hyperparameters: bool = False,
+    tuning_splits: int = 3,
     mlflow_tracking_uri: str | None = None,
     mlflow_experiment_name: str = "fraud-detection-ieee",
 ) -> ModelMetadata:
@@ -96,7 +99,17 @@ def train_ieee_baseline_model(
     if max_train_rows is not None and len(train) > max_train_rows:
         train = train.tail(max_train_rows).copy()
 
-    model = _model_pipeline(model_candidate)
+    model_params = _default_model_params(model_candidate)
+    tuning_summary = None
+    if tune_hyperparameters:
+        tuning_summary = _tune_hyperparameters(
+            train=train,
+            model_candidate=model_candidate,
+            n_splits=tuning_splits,
+        )
+        model_params = tuning_summary["best_params"]
+
+    model = _model_pipeline(model_candidate, model_params)
     model.fit(_features(train), train["isFraud"].astype(int))
     probabilities = model.predict_proba(_features(validation))[:, 1]
     labels = validation["isFraud"].astype(int)
@@ -111,12 +124,15 @@ def train_ieee_baseline_model(
         "train_rows": int(len(train)),
         "validation_rows": int(len(validation)),
         "model_candidate": model_candidate,
+        "model_params": model_params,
         "train_fraud_rate": float(train["isFraud"].mean()),
         "validation_fraud_rate": float(labels.mean()),
         "validation_roc_auc": float(roc_auc_score(labels, probabilities)),
         "validation_pr_auc": float(average_precision_score(labels, probabilities)),
         "validation_brier_score": float(brier_score_loss(labels, probabilities)),
     }
+    if tuning_summary is not None:
+        summary["tuning"] = tuning_summary
     Path(output_dir, "training_summary.json").write_text(json.dumps(summary, indent=2))
     if mlflow_tracking_uri:
         _log_mlflow_run(
@@ -133,7 +149,7 @@ def train_ieee_baseline_model(
 def _log_mlflow_run(
     model: Pipeline,
     metadata: ModelMetadata,
-    summary: dict[str, float | int],
+    summary: dict[str, object],
     tracking_uri: str,
     experiment_name: str,
     max_train_rows: int | None,
@@ -151,6 +167,18 @@ def _log_mlflow_run(
                 "max_train_rows": max_train_rows or summary["train_rows"],
             }
         )
+        mlflow.log_params(
+            {f"model__{name}": value for name, value in dict(summary["model_params"]).items()}
+        )
+        if "tuning" in summary:
+            tuning = dict(summary["tuning"])
+            mlflow.log_params(
+                {
+                    "tuning_strategy": tuning["strategy"],
+                    "tuning_splits": tuning["n_splits"],
+                    "tuning_trials": len(tuning["trials"]),
+                }
+            )
         mlflow.log_metrics(
             {
                 "train_fraud_rate": float(summary["train_fraud_rate"]),
@@ -163,18 +191,23 @@ def _log_mlflow_run(
         mlflow.sklearn.log_model(model, name="model")
 
 
-def _logistic_regression_pipeline() -> Pipeline:
+def _logistic_regression_pipeline(model_params: dict[str, object] | None = None) -> Pipeline:
+    params = model_params or _default_model_params("logistic_regression")
     return Pipeline(
         steps=[
             ("preprocess", _preprocessor(sparse_output=True)),
-            ("model", LogisticRegression(max_iter=1000)),
+            ("model", LogisticRegression(**params)),
         ]
     )
 
 
-def _model_pipeline(model_candidate: str) -> Pipeline:
+def _model_pipeline(
+    model_candidate: str,
+    model_params: dict[str, object] | None = None,
+) -> Pipeline:
+    params = model_params or _default_model_params(model_candidate)
     if model_candidate == "logistic_regression":
-        return _logistic_regression_pipeline()
+        return _logistic_regression_pipeline(params)
     if model_candidate == "catboost":
         return Pipeline(
             steps=[
@@ -182,13 +215,11 @@ def _model_pipeline(model_candidate: str) -> Pipeline:
                 (
                     "model",
                     CatBoostClassifier(
-                        iterations=50,
-                        depth=4,
-                        learning_rate=0.1,
                         loss_function="Logloss",
                         random_seed=42,
                         verbose=False,
                         allow_writing_files=False,
+                        **params,
                     ),
                 ),
             ]
@@ -200,11 +231,9 @@ def _model_pipeline(model_candidate: str) -> Pipeline:
                 (
                     "model",
                     LGBMClassifier(
-                        n_estimators=50,
-                        learning_rate=0.1,
-                        num_leaves=7,
                         random_state=42,
                         verbose=-1,
+                        **params,
                     ),
                 ),
             ]
@@ -228,6 +257,88 @@ def _model_type(model_candidate: str) -> str:
         "lightgbm": "lightgbm_ieee_candidate",
     }
     return model_types[model_candidate]
+
+
+def _default_model_params(model_candidate: str) -> dict[str, object]:
+    defaults: dict[str, dict[str, object]] = {
+        "logistic_regression": {"max_iter": 1000},
+        "catboost": {"iterations": 50, "depth": 4, "learning_rate": 0.1},
+        "lightgbm": {"n_estimators": 50, "learning_rate": 0.1, "num_leaves": 7},
+    }
+    return defaults[model_candidate].copy()
+
+
+def _hyperparameter_grid(model_candidate: str) -> list[dict[str, object]]:
+    if model_candidate == "catboost":
+        return [
+            {"iterations": 50, "depth": 4, "learning_rate": 0.1},
+            {"iterations": 100, "depth": 4, "learning_rate": 0.05},
+            {"iterations": 100, "depth": 6, "learning_rate": 0.05},
+        ]
+    if model_candidate == "lightgbm":
+        return [
+            {"n_estimators": 50, "learning_rate": 0.1, "num_leaves": 7},
+            {"n_estimators": 100, "learning_rate": 0.05, "num_leaves": 15},
+            {"n_estimators": 150, "learning_rate": 0.03, "num_leaves": 31},
+        ]
+    return [_default_model_params(model_candidate)]
+
+
+def _tune_hyperparameters(
+    train: pd.DataFrame,
+    model_candidate: str,
+    n_splits: int,
+) -> dict[str, object]:
+    splitter = TimeSeriesSplit(n_splits=n_splits)
+    trials = []
+    best_trial = None
+    for params in _hyperparameter_grid(model_candidate):
+        fold_metrics = []
+        for train_index, validation_index in splitter.split(train):
+            fold_train = train.iloc[train_index]
+            fold_validation = train.iloc[validation_index]
+            model = _model_pipeline(model_candidate, params)
+            model.fit(_features(fold_train), fold_train["isFraud"].astype(int))
+            probabilities = model.predict_proba(_features(fold_validation))[:, 1]
+            labels = fold_validation["isFraud"].astype(int)
+            fold_metrics.append(
+                {
+                    "validation_pr_auc": float(average_precision_score(labels, probabilities)),
+                    "validation_roc_auc": float(roc_auc_score(labels, probabilities)),
+                    "validation_brier_score": float(brier_score_loss(labels, probabilities)),
+                }
+            )
+        trial = {
+            "params": params,
+            "mean_validation_pr_auc": float(
+                sum(metric["validation_pr_auc"] for metric in fold_metrics) / len(fold_metrics)
+            ),
+            "mean_validation_roc_auc": float(
+                sum(metric["validation_roc_auc"] for metric in fold_metrics) / len(fold_metrics)
+            ),
+            "mean_validation_brier_score": float(
+                sum(metric["validation_brier_score"] for metric in fold_metrics) / len(fold_metrics)
+            ),
+            "folds": fold_metrics,
+        }
+        trials.append(trial)
+        if best_trial is None or (
+            trial["mean_validation_pr_auc"],
+            -trial["mean_validation_brier_score"],
+        ) > (
+            best_trial["mean_validation_pr_auc"],
+            -best_trial["mean_validation_brier_score"],
+        ):
+            best_trial = trial
+
+    assert best_trial is not None
+    return {
+        "strategy": "time_series_split_grid_search",
+        "n_splits": n_splits,
+        "best_params": best_trial["params"],
+        "best_mean_validation_pr_auc": best_trial["mean_validation_pr_auc"],
+        "trials": trials,
+    }
 
 
 def _preprocessor(sparse_output: bool) -> ColumnTransformer:
@@ -281,6 +392,8 @@ def main() -> None:
         choices=MODEL_CANDIDATES,
         default="logistic_regression",
     )
+    parser.add_argument("--tune-hyperparameters", action="store_true")
+    parser.add_argument("--tuning-splits", type=int, default=3)
     parser.add_argument("--mlflow-tracking-uri")
     parser.add_argument("--mlflow-experiment-name", default="fraud-detection-ieee")
     args = parser.parse_args()
@@ -296,6 +409,8 @@ def main() -> None:
             output_dir=args.output_dir,
             max_train_rows=args.max_train_rows,
             model_candidate=args.model_candidate,
+            tune_hyperparameters=args.tune_hyperparameters,
+            tuning_splits=args.tuning_splits,
             mlflow_tracking_uri=args.mlflow_tracking_uri,
             mlflow_experiment_name=args.mlflow_experiment_name,
         )
