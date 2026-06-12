@@ -72,9 +72,9 @@ The processed split uses transaction time order:
 The current baseline training command uses the most recent 100,000 train rows so the first real-data
 iteration runs quickly while still respecting time order.
 
-## Baseline Model
+## Baseline Model And First Candidate Benchmarks
 
-Command:
+Baseline command:
 
 Requires local MLflow to be running at `http://localhost:5001` for the tracking step.
 
@@ -90,42 +90,43 @@ uv run fraud-train \
 The model bundle is always written locally. MLflow logging happens only when
 `--mlflow-tracking-uri` is provided.
 
-Model artifact:
+Candidate commands add `--model-candidate catboost` or `--model-candidate lightgbm` and write to a
+candidate-specific output directory during comparison.
 
-- `model_version`: `ieee-logistic-baseline:1`
-- `model_type`: `logistic_regression_ieee_baseline`
+Model artifacts:
+
 - `feature_schema_version`: `v1`
 - `decision_policy_version`: `v1`
 - MLflow experiment: `fraud-detection-ieee`
-- MLflow run: `537422fa43054c8b9c58c0c49ab867f6`
 
-Validation metrics:
+Validation comparison:
 
-| Metric | Value |
-| --- | ---: |
-| ROC-AUC | 0.7023 |
-| PR-AUC | 0.0977 |
-| Brier score | 0.0307 |
-| Train fraud rate | 3.67% |
-| Validation fraud rate | 3.26% |
+| Candidate | Model version | MLflow run | ROC-AUC | PR-AUC | Brier score |
+| --- | --- | --- | ---: | ---: | ---: |
+| Logistic regression | `ieee-logistic-baseline:1` | `537422fa43054c8b9c58c0c49ab867f6` | 0.7023 | 0.0977 | 0.0307 |
+| CatBoost | `ieee-catboost:1` | `1ae898956eea4b07b788ee3adc645ae0` | 0.7260 | 0.1359 | 0.0300 |
+| LightGBM | `ieee-lightgbm:1` | `bb9cd72672564d16bd2b6bef153129da` | 0.7489 | 0.1498 | 0.0297 |
+
+All three runs used the most recent 100,000 training rows and the same 88,581-row validation split.
+LightGBM is the strongest first-pass candidate on PR-AUC, ROC-AUC, and Brier score.
 
 ## Interpretation
 
-This model is a real-data baseline, not the final candidate.
+These runs are first-pass real-data baselines and candidates, not final tuned models.
 
 What it proves:
 
 - The project can now train from the actual IEEE-CIS files.
-- The platform can produce a model artifact from real data, not just synthetic rows.
-- The platform can log the baseline model, parameters, and validation metrics to MLflow.
-- The validation score is meaningfully above random, so the selected features carry signal.
+- The platform can produce model artifacts from real data, not just synthetic rows.
+- The platform can log candidate models, parameters, and validation metrics to MLflow.
+- The validation scores are meaningfully above random, so the selected features carry signal.
 - The replay split exists, which unlocks Kafka replay with `data/processed/replay.parquet`.
 
 What it does not prove yet:
 
-- The logistic model is not expected to be the best performer for this dataset.
-- PR-AUC is still low because fraud is rare and the feature set is intentionally small.
-- Calibration has not been fit yet; the Brier score is only from raw logistic probabilities.
+- LightGBM is not final until threshold, calibration, latency, and segment behavior are checked.
+- PR-AUC is still modest because fraud is rare and the feature set is intentionally small.
+- Calibration has not been fit yet; the Brier score is only from raw model probabilities.
 - Segment behavior, especially for `ProductCD=C`, still needs threshold and false-positive analysis.
 
 ## Recommended Next Modeling Steps

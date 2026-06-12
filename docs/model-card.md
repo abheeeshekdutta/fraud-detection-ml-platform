@@ -92,7 +92,7 @@ Every packaged model bundle includes:
 
 The initial synthetic model is a smoke-test artifact, not the final IEEE-CIS production candidate.
 
-## Current IEEE-CIS Baseline
+## Current IEEE-CIS Baseline And Candidates
 
 The first real-data artifact is:
 
@@ -103,11 +103,13 @@ The first real-data artifact is:
 - MLflow experiment: `fraud-detection-ieee`
 - latest logged MLflow run: `537422fa43054c8b9c58c0c49ab867f6`
 
-Validation metrics:
+First-pass validation comparison:
 
-- ROC-AUC: 0.7023
-- PR-AUC: 0.0977
-- Brier score: 0.0307
+| Candidate | Model version | ROC-AUC | PR-AUC | Brier score |
+| --- | --- | ---: | ---: | ---: |
+| Logistic regression | `ieee-logistic-baseline:1` | 0.7023 | 0.0977 | 0.0307 |
+| CatBoost | `ieee-catboost:1` | 0.7260 | 0.1359 | 0.0300 |
+| LightGBM | `ieee-lightgbm:1` | 0.7489 | 0.1498 | 0.0297 |
 
-This is a baseline for platform validation and comparison. It is not the final recommended fraud
-model; CatBoost and LightGBM candidate training is available for follow-up benchmark runs.
+LightGBM is the strongest first-pass candidate on the current validation split. It is not the final
+recommended fraud model until threshold, calibration, latency, and segment behavior are evaluated.

@@ -646,3 +646,42 @@ This document records implementation task summaries for learning and review.
   separate one-off training scripts.
 - For sklearn-compatible tree models, dense preprocessed features are the least surprising integration
   point when the existing baseline already owns categorical imputation and encoding.
+
+## Task 17: First IEEE-CIS Candidate Benchmark Runs
+
+**What changed**
+
+- Ran CatBoost and LightGBM candidate training against the same 100,000-row IEEE-CIS training slice as
+  the logistic baseline.
+- Logged both candidate runs to the `fraud-detection-ieee` MLflow experiment.
+- Wrote candidate artifacts under `artifacts/model/candidates/` for comparison without replacing the
+  current `artifacts/model/latest` bundle.
+- Updated `docs/ieee-cis-analysis.md` and `docs/model-card.md` with a candidate comparison table.
+
+**Problems faced**
+
+- Candidate artifacts should not overwrite the current promoted local model bundle during comparison.
+- LightGBM emits a sklearn feature-name warning in this pipeline, but the run completes and produces
+  validation metrics.
+
+**Solutions applied**
+
+- Used candidate-specific output directories:
+  `artifacts/model/candidates/catboost` and `artifacts/model/candidates/lightgbm`.
+- Kept `artifacts/model/latest` as the logistic baseline until a deliberate promotion step.
+- Recorded MLflow run IDs in the analysis doc so the comparison is traceable.
+
+**Verification performed**
+
+- `uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir artifacts/model/candidates/catboost --max-train-rows 100000 --model-candidate catboost --mlflow-tracking-uri http://localhost:5001 --mlflow-experiment-name fraud-detection-ieee`
+- `uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir artifacts/model/candidates/lightgbm --max-train-rows 100000 --model-candidate lightgbm --mlflow-tracking-uri http://localhost:5001 --mlflow-experiment-name fraud-detection-ieee`
+- Queried MLflow and confirmed CatBoost run `1ae898956eea4b07b788ee3adc645ae0` and LightGBM run
+  `bb9cd72672564d16bd2b6bef153129da`.
+- LightGBM led the first comparison with ROC-AUC 0.7489, PR-AUC 0.1498, and Brier score 0.0297.
+
+**Reusable learnings**
+
+- Candidate benchmark docs should record both metrics and run IDs so future model-card updates are
+  auditable.
+- Do not promote a candidate just because it wins first-pass metrics; threshold, calibration, latency,
+  and segment behavior still need checks.
