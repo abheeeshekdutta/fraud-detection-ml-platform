@@ -128,8 +128,23 @@ What it does not prove yet:
 
 - LightGBM is not final until threshold, calibration, latency, and segment behavior are checked.
 - PR-AUC is still modest because fraud is rare and the feature set is still intentionally limited.
-- Calibration has not been fit yet; the Brier score is only from raw model probabilities.
+- Calibration has been fit offline, but the calibrator is not yet wired into runtime scoring.
 - Segment behavior, especially for `ProductCD=C`, still needs threshold and false-positive analysis.
+
+## Calibration
+
+LightGBM calibration was fit on the dedicated 88,581-row calibration split and evaluated on the
+88,581-row validation split:
+
+| Method | Validation Brier | Calibration error |
+| --- | ---: | ---: |
+| Raw scores | 0.029665 | 0.005643 |
+| Isotonic | 0.029763 | 0.003989 |
+| Platt | 0.030220 | 0.007460 |
+
+Isotonic improves calibration error but slightly worsens Brier score. Platt is worse on both metrics
+in this first pass, so isotonic is the better candidate when threshold analysis needs calibrated
+probabilities.
 
 ## Threshold Analysis
 
@@ -149,15 +164,20 @@ Constrained point with `max_false_block_rate=0.02`, `max_review_rate=0.30`, and
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 0.04 | 0.15 | 74.32% | 23.67% | 2.02% | 24.26% | 15.00% | 1.58% |
 
+After isotonic calibration, the constrained point changes:
+
+| Approve threshold | Block threshold | Approve rate | Review rate | Block rate | Block precision | Block recall | False block rate |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.04 | 0.30 | 77.52% | 20.31% | 2.17% | 24.70% | 16.45% | 1.69% |
+
 This is not a production recommendation. It shows why threshold selection needs business constraints:
 unconstrained utility optimization can choose an aggressive block policy with an unacceptable
-false-block rate. The constrained point is more plausible, but it still needs calibration and segment
+false-block rate. The constrained calibrated point is more plausible, but it still needs segment
 checks before promotion.
 
 ## Recommended Next Modeling Steps
 
-1. Fit probability calibration on the calibration split.
-2. Rerun constrained threshold selection with calibrated probabilities.
-3. Replace the simple conformal prediction set with a validation-backed conformal method.
-4. Add per-segment threshold analysis for `ProductCD`, especially `C` versus `W`.
-5. Measure candidate inference latency before promotion.
+1. Wire the selected calibrator into the scoring engine and API/consumer runtime.
+2. Replace the simple conformal prediction set with a validation-backed conformal method.
+3. Add per-segment threshold analysis for `ProductCD`, especially `C` versus `W`.
+4. Measure candidate inference latency before promotion.

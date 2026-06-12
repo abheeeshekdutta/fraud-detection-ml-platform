@@ -115,6 +115,19 @@ These runs use the first-pass leakage-safe transaction feature set. LightGBM is 
 candidate on the current validation split, but it is not the final recommended fraud model until
 threshold, calibration, latency, and segment behavior are evaluated.
 
+### Calibration
+
+LightGBM calibration was fit on the calibration split and evaluated on the validation split:
+
+| Method | Validation Brier | Calibration error |
+| --- | ---: | ---: |
+| Raw scores | 0.029665 | 0.005643 |
+| Isotonic | 0.029763 | 0.003989 |
+| Platt | 0.030220 | 0.007460 |
+
+Isotonic is the better calibration-error candidate in this pass, though raw scores still have a
+slightly better Brier score.
+
 ### Threshold Analysis
 
 An initial threshold-grid report was run against the LightGBM candidate on the validation split with
@@ -131,5 +144,11 @@ With constraints of `max_false_block_rate=0.02`, `max_review_rate=0.30`, and
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 0.04 | 0.15 | 74.32% | 23.67% | 2.02% | 24.26% | 15.00% | 1.58% |
 
-These operating points are useful for comparison, not deployment. Thresholds should be rerun after
-probability calibration and checked by segment before promotion.
+With isotonic-calibrated probabilities, the constrained point is:
+
+| Approve threshold | Block threshold | Approve rate | Review rate | Block rate | Block precision | Block recall | False block rate |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.04 | 0.30 | 77.52% | 20.31% | 2.17% | 24.70% | 16.45% | 1.69% |
+
+These operating points are useful for comparison, not deployment. Thresholds should be checked by
+segment before promotion.

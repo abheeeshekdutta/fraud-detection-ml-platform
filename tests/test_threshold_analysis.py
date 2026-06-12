@@ -4,6 +4,7 @@ import json
 
 import pandas as pd
 
+from fraud_platform.calibration import ProbabilityCalibrator, save_calibrator
 from fraud_platform.threshold_analysis import run_threshold_analysis
 from fraud_platform.training import train_ieee_baseline_model
 
@@ -95,11 +96,18 @@ def test_run_threshold_analysis_writes_sorted_report(tmp_path) -> None:
     frame.iloc[:8].to_parquet(processed_dir / "train.parquet", index=False)
     frame.iloc[8:].to_parquet(processed_dir / "validation.parquet", index=False)
     train_ieee_baseline_model(processed_dir=processed_dir, output_dir=model_dir)
+    calibrator_path = tmp_path / "calibrator.pkl"
+    calibrator = ProbabilityCalibrator(method="isotonic").fit(
+        pd.Series([0.1, 0.2, 0.8, 0.9]).to_numpy(),
+        pd.Series([0, 0, 1, 1]).to_numpy(),
+    )
+    save_calibrator(calibrator, calibrator_path)
 
     report = run_threshold_analysis(
         processed_dir=processed_dir,
         model_dir=model_dir,
         output_path=report_path,
+        calibrator_path=calibrator_path,
         approve_thresholds=[0.1, 0.3],
         block_thresholds=[0.6, 0.8],
         fraud_loss=100.0,
@@ -114,6 +122,8 @@ def test_run_threshold_analysis_writes_sorted_report(tmp_path) -> None:
     saved = json.loads(report_path.read_text())
     assert saved == report
     assert saved["model_version"] == "ieee-logistic-baseline:1"
+    assert saved["score_type"] == "calibrated"
+    assert saved["calibrator_path"] == str(calibrator_path)
     assert saved["constraints"] == {
         "max_false_block_rate": 0.5,
         "max_review_rate": 0.75,

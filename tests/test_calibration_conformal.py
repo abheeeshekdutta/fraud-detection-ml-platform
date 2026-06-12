@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from fraud_platform.calibration import ProbabilityCalibrator
+from fraud_platform.calibration import ProbabilityCalibrator, load_calibrator, save_calibrator
 from fraud_platform.conformal import SplitConformalClassifier
 
 
@@ -17,6 +17,19 @@ def test_probability_calibrator_maps_scores_to_probabilities() -> None:
     assert probabilities.min() >= 0
     assert probabilities.max() <= 1
     assert probabilities[-1] >= probabilities[0]
+
+
+def test_probability_calibrator_round_trips_to_disk(tmp_path) -> None:
+    raw_scores = np.array([0.05, 0.20, 0.80, 0.95])
+    labels = np.array([0, 0, 1, 1])
+    calibrator = ProbabilityCalibrator(method="isotonic").fit(raw_scores, labels)
+    target = tmp_path / "calibrator.pkl"
+
+    save_calibrator(calibrator, target)
+    loaded = load_calibrator(target)
+
+    assert loaded.method == "isotonic"
+    np.testing.assert_allclose(loaded.predict(raw_scores), calibrator.predict(raw_scores))
 
 
 def test_split_conformal_classifier_returns_prediction_sets() -> None:

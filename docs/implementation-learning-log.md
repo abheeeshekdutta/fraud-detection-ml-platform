@@ -903,3 +903,41 @@ This document records implementation task summaries for learning and review.
   cost of guardrails.
 - Constrained threshold results should be rerun after calibration because the current model scores are
   still raw probabilities.
+
+## Task 24: Probability Calibration Artifact
+
+**What changed**
+
+- Added save/load helpers for `ProbabilityCalibrator`.
+- Added a `fraud-calibrate` CLI command that fits a calibrator on `calibration.parquet`, saves the
+  artifact, and writes a calibration summary.
+- Updated threshold analysis to optionally use a saved calibrator.
+- Ran isotonic and Platt calibration for the LightGBM candidate and documented the results.
+
+**Problems faced**
+
+- Calibration primitives existed, but there was no persisted artifact or CLI workflow.
+- Calibration changed metrics differently: isotonic improved calibration error but slightly worsened
+  Brier score, while Platt worsened both on this validation split.
+
+**Solutions applied**
+
+- Persisted fitted calibrators with a small typed load guard.
+- Evaluated raw and calibrated scores on the validation split with Brier score and calibration error.
+- Kept threshold analysis flexible by accepting an optional `--calibrator-path`.
+
+**Verification performed**
+
+- Isotonic: validation Brier 0.029763, calibration error 0.003989.
+- Platt: validation Brier 0.030220, calibration error 0.007460.
+- Raw LightGBM scores: validation Brier 0.029665, calibration error 0.005643.
+- Isotonic constrained threshold point: approve threshold 0.04, block threshold 0.30, approve rate
+  77.52%, review rate 20.31%, block rate 2.17%, block precision 24.70%, block recall 16.45%,
+  false-block rate 1.69%.
+
+**Reusable learnings**
+
+- Calibration should be judged with more than one metric; improving calibration error can still worsen
+  Brier score.
+- Runtime scoring should not be wired to a calibrator until the artifact workflow and offline
+  threshold reports are traceable.

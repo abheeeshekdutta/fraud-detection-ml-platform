@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from fraud_platform.artifacts import load_model_bundle
+from fraud_platform.calibration import load_calibrator
 from fraud_platform.metrics import evaluate_threshold_grid, select_constrained_thresholds
 
 
@@ -20,6 +21,7 @@ def run_threshold_analysis(
     review_cost: float,
     false_block_cost: float,
     top_k: int,
+    calibrator_path: str | Path | None = None,
     max_false_block_rate: float | None = None,
     max_review_rate: float | None = None,
     min_block_precision: float | None = None,
@@ -27,7 +29,12 @@ def run_threshold_analysis(
     processed_path = Path(processed_dir)
     validation = pd.read_parquet(processed_path / "validation.parquet")
     bundle = load_model_bundle(model_dir)
-    probabilities = bundle.predict_raw_probability(validation)
+    raw_probabilities = bundle.predict_raw_probability(validation)
+    if calibrator_path is not None:
+        calibrator = load_calibrator(calibrator_path)
+        probabilities = calibrator.predict(pd.Series(raw_probabilities).to_numpy()).tolist()
+    else:
+        probabilities = raw_probabilities
     reports = evaluate_threshold_grid(
         y_true=validation["isFraud"].to_numpy(),
         probabilities=pd.Series(probabilities).to_numpy(),
@@ -46,6 +53,8 @@ def run_threshold_analysis(
     report = {
         "model_version": bundle.metadata.model_version,
         "model_type": bundle.metadata.model_type,
+        "score_type": "calibrated" if calibrator_path is not None else "raw",
+        "calibrator_path": str(calibrator_path) if calibrator_path is not None else None,
         "validation_rows": int(len(validation)),
         "validation_fraud_rate": float(validation["isFraud"].mean()),
         "cost_assumptions": {
@@ -78,6 +87,7 @@ def main() -> None:
     parser.add_argument("--processed-dir", default="data/processed")
     parser.add_argument("--model-dir", default="artifacts/model/latest")
     parser.add_argument("--output-path", default="reports/generated/threshold_analysis.json")
+    parser.add_argument("--calibrator-path")
     parser.add_argument("--approve-thresholds", default="0.01,0.02,0.05,0.10,0.20")
     parser.add_argument("--block-thresholds", default="0.50,0.60,0.70,0.80,0.90")
     parser.add_argument("--fraud-loss", type=float, default=100.0)
@@ -92,6 +102,7 @@ def main() -> None:
         processed_dir=args.processed_dir,
         model_dir=args.model_dir,
         output_path=args.output_path,
+        calibrator_path=args.calibrator_path,
         approve_thresholds=_parse_thresholds(args.approve_thresholds),
         block_thresholds=_parse_thresholds(args.block_thresholds),
         fraud_loss=args.fraud_loss,
