@@ -67,18 +67,17 @@ feature leakage.
 
 ## Current Results
 
-Before these derived features were added, using the most recent 100,000 time-ordered training rows
-and the 88,581-row validation split:
+Using the most recent 100,000 time-ordered training rows and the 88,581-row validation split:
 
 | Candidate | ROC-AUC | PR-AUC | Brier score |
 | --- | ---: | ---: | ---: |
-| Logistic regression | 0.7023 | 0.0977 | 0.0307 |
-| CatBoost | 0.7260 | 0.1359 | 0.0300 |
-| LightGBM | 0.7489 | 0.1498 | 0.0297 |
+| Logistic regression | 0.7543 | 0.1111 | 0.0303 |
+| CatBoost | 0.7526 | 0.1309 | 0.0300 |
+| LightGBM | 0.7677 | 0.1503 | 0.0297 |
 
-LightGBM was the strongest first-pass model on the minimal raw feature set. The derived feature set is
-now implemented in code, but it still needs a fresh benchmark run against the same candidates before
-updating the comparison table.
+LightGBM remains the strongest first-pass model after adding the leakage-safe derived features. The
+new feature set improved ROC-AUC for all three candidates, while PR-AUC still needs stronger signal
+from tuned models, segment features, or safe historical aggregates.
 
 ## Feature Engineering Notes
 

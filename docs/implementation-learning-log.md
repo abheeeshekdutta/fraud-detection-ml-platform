@@ -790,3 +790,41 @@ This document records implementation task summaries for learning and review.
   inference.
 - Start with per-row features before historical aggregates; the leakage surface is smaller and easier
   to test.
+
+## Task 21: Refreshed Candidate Benchmarks With Derived Features
+
+**What changed**
+
+- Reran logistic regression, CatBoost, and LightGBM on the 16-feature IEEE-CIS transaction feature
+  set.
+- Logged refreshed runs to the `fraud-detection-ieee` MLflow experiment.
+- Fixed `training_summary.json` so it records the MLflow run ID after a logged training run.
+- Updated benchmark tables in the IEEE-CIS analysis, model card, feature engineering log, and
+  hyperparameter tuning log.
+
+**Problems faced**
+
+- The local training summaries did not include the MLflow run IDs, even though the runs were created.
+- The docs still showed the raw-feature benchmark numbers after the derived feature pipeline landed.
+
+**Solutions applied**
+
+- Added a regression test that compares the summary run ID to the MLflow run ID.
+- Returned the active MLflow run ID from the logging helper and rewrote the summary after logging.
+- Regenerated all three candidate summaries before updating documentation.
+
+**Verification performed**
+
+- Logistic regression: ROC-AUC 0.7543, PR-AUC 0.1111, Brier score 0.0303, MLflow run
+  `d1959d793cb74653ba634ec44859b323`.
+- CatBoost: ROC-AUC 0.7526, PR-AUC 0.1309, Brier score 0.0300, MLflow run
+  `a7077a78e4eb47e7a5b3d1d518679203`.
+- LightGBM: ROC-AUC 0.7677, PR-AUC 0.1503, Brier score 0.0297, MLflow run
+  `d27e4c3990234b6181d97ad606495352`.
+
+**Reusable learnings**
+
+- Benchmark docs should be regenerated from local summaries only after those summaries contain the
+  run IDs needed for traceability.
+- A small feature set can improve ranking metrics, but rare-event PR-AUC still needs tuning,
+  calibration, threshold work, and stronger leakage-safe signal.

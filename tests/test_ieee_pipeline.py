@@ -131,6 +131,8 @@ def test_train_ieee_baseline_model_logs_mlflow_run(tmp_path) -> None:
     assert runs[0].data.params["model_candidate"] == "logistic_regression"
     assert runs[0].data.params["model__max_iter"] == "1000"
     assert "validation_pr_auc" in runs[0].data.metrics
+    summary = json.loads((model_dir / "training_summary.json").read_text())
+    assert summary["mlflow_run_id"] == runs[0].info.run_id
 
 
 @pytest.mark.filterwarnings("ignore:X does not have valid feature names.*:UserWarning")

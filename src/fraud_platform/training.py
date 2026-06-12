@@ -144,9 +144,10 @@ def train_ieee_baseline_model(
     }
     if tuning_summary is not None:
         summary["tuning"] = tuning_summary
-    Path(output_dir, "training_summary.json").write_text(json.dumps(summary, indent=2))
+    summary_path = Path(output_dir, "training_summary.json")
+    summary_path.write_text(json.dumps(summary, indent=2))
     if mlflow_tracking_uri:
-        _log_mlflow_run(
+        summary["mlflow_run_id"] = _log_mlflow_run(
             model=model,
             metadata=metadata,
             summary=summary,
@@ -154,6 +155,7 @@ def train_ieee_baseline_model(
             experiment_name=mlflow_experiment_name,
             max_train_rows=max_train_rows,
         )
+        summary_path.write_text(json.dumps(summary, indent=2))
     return metadata
 
 
@@ -164,10 +166,10 @@ def _log_mlflow_run(
     tracking_uri: str,
     experiment_name: str,
     max_train_rows: int | None,
-) -> None:
+) -> str:
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(experiment_name)
-    with mlflow.start_run(run_name=metadata.model_version):
+    with mlflow.start_run(run_name=metadata.model_version) as run:
         mlflow.log_params(
             {
                 "model_version": metadata.model_version,
@@ -200,6 +202,7 @@ def _log_mlflow_run(
             }
         )
         mlflow.sklearn.log_model(model, name="model")
+        return run.info.run_id
 
 
 def _logistic_regression_pipeline(model_params: dict[str, object] | None = None) -> Pipeline:

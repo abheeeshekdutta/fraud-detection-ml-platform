@@ -103,12 +103,13 @@ Validation comparison:
 
 | Candidate | Model version | MLflow run | ROC-AUC | PR-AUC | Brier score |
 | --- | --- | --- | ---: | ---: | ---: |
-| Logistic regression | `ieee-logistic-baseline:1` | `537422fa43054c8b9c58c0c49ab867f6` | 0.7023 | 0.0977 | 0.0307 |
-| CatBoost | `ieee-catboost:1` | `1ae898956eea4b07b788ee3adc645ae0` | 0.7260 | 0.1359 | 0.0300 |
-| LightGBM | `ieee-lightgbm:1` | `bb9cd72672564d16bd2b6bef153129da` | 0.7489 | 0.1498 | 0.0297 |
+| Logistic regression | `ieee-logistic-baseline:1` | `d1959d793cb74653ba634ec44859b323` | 0.7543 | 0.1111 | 0.0303 |
+| CatBoost | `ieee-catboost:1` | `a7077a78e4eb47e7a5b3d1d518679203` | 0.7526 | 0.1309 | 0.0300 |
+| LightGBM | `ieee-lightgbm:1` | `d27e4c3990234b6181d97ad606495352` | 0.7677 | 0.1503 | 0.0297 |
 
-All three runs used the most recent 100,000 training rows and the same 88,581-row validation split.
-LightGBM is the strongest first-pass candidate on PR-AUC, ROC-AUC, and Brier score.
+All three runs used the 16-feature leakage-safe transaction feature set, the most recent 100,000
+training rows, and the same 88,581-row validation split. LightGBM remains the strongest first-pass
+candidate on PR-AUC, ROC-AUC, and Brier score.
 
 ## Interpretation
 
@@ -120,12 +121,13 @@ What it proves:
 - The platform can produce model artifacts from real data, not just synthetic rows.
 - The platform can log candidate models, parameters, and validation metrics to MLflow.
 - The validation scores are meaningfully above random, so the selected features carry signal.
+- The first-pass derived transaction features improved ROC-AUC for all three candidates.
 - The replay split exists, which unlocks Kafka replay with `data/processed/replay.parquet`.
 
 What it does not prove yet:
 
 - LightGBM is not final until threshold, calibration, latency, and segment behavior are checked.
-- PR-AUC is still modest because fraud is rare and the feature set is intentionally small.
+- PR-AUC is still modest because fraud is rare and the feature set is still intentionally limited.
 - Calibration has not been fit yet; the Brier score is only from raw model probabilities.
 - Segment behavior, especially for `ProductCD=C`, still needs threshold and false-positive analysis.
 

@@ -101,15 +101,16 @@ The first real-data artifact is:
 - training sample: most recent 100,000 rows from the time-ordered training split
 - validation split: 88,581 later transactions
 - MLflow experiment: `fraud-detection-ieee`
-- latest logged MLflow run: `537422fa43054c8b9c58c0c49ab867f6`
+- latest logged MLflow run: `d27e4c3990234b6181d97ad606495352`
 
 First-pass validation comparison:
 
 | Candidate | Model version | ROC-AUC | PR-AUC | Brier score |
 | --- | --- | ---: | ---: | ---: |
-| Logistic regression | `ieee-logistic-baseline:1` | 0.7023 | 0.0977 | 0.0307 |
-| CatBoost | `ieee-catboost:1` | 0.7260 | 0.1359 | 0.0300 |
-| LightGBM | `ieee-lightgbm:1` | 0.7489 | 0.1498 | 0.0297 |
+| Logistic regression | `ieee-logistic-baseline:1` | 0.7543 | 0.1111 | 0.0303 |
+| CatBoost | `ieee-catboost:1` | 0.7526 | 0.1309 | 0.0300 |
+| LightGBM | `ieee-lightgbm:1` | 0.7677 | 0.1503 | 0.0297 |
 
-LightGBM is the strongest first-pass candidate on the current validation split. It is not the final
-recommended fraud model until threshold, calibration, latency, and segment behavior are evaluated.
+These runs use the first-pass leakage-safe transaction feature set. LightGBM is the strongest
+candidate on the current validation split, but it is not the final recommended fraud model until
+threshold, calibration, latency, and segment behavior are evaluated.

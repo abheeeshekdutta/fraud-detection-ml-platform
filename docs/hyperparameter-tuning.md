@@ -105,19 +105,21 @@ development into a long-running experiment.
 
 ## Current Benchmark Results
 
-First-pass, untuned candidate comparison on the most recent 100,000 training rows:
+First-pass, untuned candidate comparison on the 16-feature transaction set and the most recent
+100,000 training rows:
 
 | Candidate | MLflow run | ROC-AUC | PR-AUC | Brier score |
 | --- | --- | ---: | ---: | ---: |
-| Logistic regression | `537422fa43054c8b9c58c0c49ab867f6` | 0.7023 | 0.0977 | 0.0307 |
-| CatBoost | `1ae898956eea4b07b788ee3adc645ae0` | 0.7260 | 0.1359 | 0.0300 |
-| LightGBM | `bb9cd72672564d16bd2b6bef153129da` | 0.7489 | 0.1498 | 0.0297 |
+| Logistic regression | `d1959d793cb74653ba634ec44859b323` | 0.7543 | 0.1111 | 0.0303 |
+| CatBoost | `a7077a78e4eb47e7a5b3d1d518679203` | 0.7526 | 0.1309 | 0.0300 |
+| LightGBM | `d27e4c3990234b6181d97ad606495352` | 0.7677 | 0.1503 | 0.0297 |
 
 LightGBM is the strongest first-pass candidate so far.
 
 ## Notes
 
 - These results are from fixed starter hyperparameters, not a full tuning campaign.
+- `training_summary.json` records the MLflow run ID for each logged run.
 - The tuning path is implemented and covered by tests, but a full real-data tuned benchmark has not
   yet been recorded in the model card.
 - Candidate artifacts should be written under `artifacts/model/candidates/` during comparison.
