@@ -753,3 +753,40 @@ This document records implementation task summaries for learning and review.
 
 - ML projects need decision logs for features and tuning, not just metrics tables.
 - Writing leakage rules before feature expansion helps prevent accidental future-information leakage.
+
+## Task 20: Leakage-Safe Per-Transaction Features
+
+**What changed**
+
+- Added first-pass derived features for amount skew, decimal remainder, identity coverage,
+  missingness, and event time.
+- Moved feature derivation into the saved sklearn pipeline so training, tuning, and loaded-bundle
+  prediction use the same raw transaction input path.
+- Recorded feature counts and feature lists in `training_summary.json`.
+- Updated the feature engineering and modeling docs to distinguish implemented features from planned
+  aggregate and encoding work.
+
+**Problems faced**
+
+- The previous trainer selected model columns before pipeline fitting, which meant derived features
+  would have to be duplicated in training and serving paths.
+- Synthetic tests did not include `TransactionDT`, so the new event-time features needed fixture
+  coverage.
+
+**Solutions applied**
+
+- Put `FraudFeatureTransformer` at the start of each candidate pipeline.
+- Kept derived features limited to single-row values that are available at scoring time.
+- Added regression coverage for the transformer output and feature lineage in the training summary.
+
+**Verification performed**
+
+- Added a failing transformer test before implementing the derived features.
+- Reran focused feature, IEEE pipeline, and bundle prediction tests after implementation.
+
+**Reusable learnings**
+
+- Feature engineering belongs in the model bundle when the same logic must run in training and
+  inference.
+- Start with per-row features before historical aggregates; the leakage surface is smaller and easier
+  to test.

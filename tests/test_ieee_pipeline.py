@@ -86,6 +86,9 @@ def test_train_ieee_baseline_model_writes_loadable_bundle(tmp_path) -> None:
 
     assert metadata.model_version == "ieee-logistic-baseline:1"
     assert bundle.metadata.model_type == "logistic_regression_ieee_baseline"
+    assert training_summary["feature_count"] > 7
+    assert "TransactionAmt_log1p" in training_summary["numeric_features"]
+    assert "has_identity" in training_summary["numeric_features"]
     assert 0.0 <= training_summary["validation_roc_auc"] <= 1.0
     assert 0.0 <= training_summary["validation_pr_auc"] <= 1.0
 

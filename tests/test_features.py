@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from fraud_platform.features.ieee import (
     build_transaction_event,
@@ -54,14 +55,46 @@ def test_transformer_produces_stable_feature_columns(
 
     assert list(features.columns) == [
         "TransactionAmt",
+        "TransactionDT",
         "ProductCD",
         "card1",
         "addr1",
         "P_emaildomain",
         "DeviceType",
         "id_31",
+        "TransactionAmt_log1p",
+        "TransactionAmt_cents",
+        "has_identity",
+        "missing_addr1",
+        "missing_P_emaildomain",
+        "missing_DeviceType",
+        "transaction_day",
+        "transaction_hour",
     ]
     assert features["ProductCD"].dtype.name == "category"
+
+
+def test_transformer_adds_leakage_safe_derived_features(
+    synthetic_transactions: pd.DataFrame,
+    synthetic_identity: pd.DataFrame,
+) -> None:
+    joined = join_transaction_identity(synthetic_transactions, synthetic_identity)
+    transformer = FraudFeatureTransformer()
+
+    features = transformer.fit_transform(joined)
+
+    assert "TransactionAmt_log1p" in features.columns
+    assert "TransactionAmt_cents" in features.columns
+    assert "has_identity" in features.columns
+    assert "missing_addr1" in features.columns
+    assert "missing_P_emaildomain" in features.columns
+    assert "missing_DeviceType" in features.columns
+    assert "transaction_day" in features.columns
+    assert "transaction_hour" in features.columns
+    assert features.loc[0, "TransactionAmt_log1p"] == pytest.approx(3.0445, abs=0.0001)
+    assert features.loc[0, "TransactionAmt_cents"] == 0
+    assert features.loc[0, "has_identity"] == 1
+    assert features.loc[joined["TransactionID"] == 3, "has_identity"].item() == 0
 
 
 def test_build_transaction_event_maps_serving_safe_groups(

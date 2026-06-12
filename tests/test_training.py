@@ -24,6 +24,7 @@ def test_loaded_bundle_predicts_probability(tmp_path) -> None:
     rows = pd.DataFrame(
         {
             "TransactionAmt": [20.0],
+            "TransactionDT": [10],
             "ProductCD": ["W"],
             "card1": [1001],
             "addr1": [100.0],

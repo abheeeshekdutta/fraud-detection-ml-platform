@@ -137,8 +137,8 @@ Selection criteria:
 The current project has first-pass candidate training and small time-aware hyperparameter search.
 The following modeling work is still important before treating any model as production-ready:
 
-- richer feature engineering, including amount transformations, identity coverage indicators, and
-  time-based transaction features
+- richer feature engineering beyond the first-pass amount, missingness, and event-time features,
+  including frequency encodings, fold-safe priors, and prior-only aggregates
 - leakage checks for any aggregate or identity-derived feature
 - class-imbalance handling and threshold optimization for approve/review/block decisions
 - probability calibration on the calibration split

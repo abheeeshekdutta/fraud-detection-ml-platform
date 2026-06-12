@@ -19,9 +19,16 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from fraud_platform.artifacts import ModelBundle, ModelMetadata, save_model_bundle
 from fraud_platform.datasets import prepare_ieee_cis_splits
+from fraud_platform.features.transformers import FraudFeatureTransformer
 
-CATEGORICAL_FEATURES = ["ProductCD", "P_emaildomain", "DeviceType", "id_31"]
-NUMERIC_FEATURES = ["TransactionAmt", "card1", "addr1"]
+CATEGORICAL_FEATURES = FraudFeatureTransformer.categorical_columns
+NUMERIC_FEATURES = [
+    "TransactionAmt",
+    "TransactionDT",
+    "card1",
+    "addr1",
+    *FraudFeatureTransformer.derived_numeric_columns,
+]
 MODEL_FEATURES = NUMERIC_FEATURES + CATEGORICAL_FEATURES
 MODEL_CANDIDATES = ("logistic_regression", "catboost", "lightgbm")
 
@@ -30,6 +37,7 @@ def _synthetic_training_frame() -> tuple[pd.DataFrame, pd.Series]:
     features = pd.DataFrame(
         {
             "TransactionAmt": [20.0, 200.0, 35.0, 500.0, 75.0, 900.0, 15.0, 650.0],
+            "TransactionDT": [10, 20, 30, 40, 50, 60, 70, 80],
             "ProductCD": ["W", "C", "W", "R", "H", "C", "W", "C"],
             "card1": [1001, 1002, 1001, 1003, 1004, 1002, 1001, 1003],
             "addr1": [100.0, 200.0, 100.0, 300.0, 300.0, 200.0, 100.0, 300.0],
@@ -110,8 +118,8 @@ def train_ieee_baseline_model(
         model_params = tuning_summary["best_params"]
 
     model = _model_pipeline(model_candidate, model_params)
-    model.fit(_features(train), train["isFraud"].astype(int))
-    probabilities = model.predict_proba(_features(validation))[:, 1]
+    model.fit(train, train["isFraud"].astype(int))
+    probabilities = model.predict_proba(validation)[:, 1]
     labels = validation["isFraud"].astype(int)
     metadata = ModelMetadata(
         model_version=_model_version(model_candidate),
@@ -125,6 +133,9 @@ def train_ieee_baseline_model(
         "validation_rows": int(len(validation)),
         "model_candidate": model_candidate,
         "model_params": model_params,
+        "feature_count": len(MODEL_FEATURES),
+        "numeric_features": NUMERIC_FEATURES,
+        "categorical_features": CATEGORICAL_FEATURES,
         "train_fraud_rate": float(train["isFraud"].mean()),
         "validation_fraud_rate": float(labels.mean()),
         "validation_roc_auc": float(roc_auc_score(labels, probabilities)),
@@ -195,6 +206,7 @@ def _logistic_regression_pipeline(model_params: dict[str, object] | None = None)
     params = model_params or _default_model_params("logistic_regression")
     return Pipeline(
         steps=[
+            ("features", FraudFeatureTransformer()),
             ("preprocess", _preprocessor(sparse_output=True)),
             ("model", LogisticRegression(**params)),
         ]
@@ -211,6 +223,7 @@ def _model_pipeline(
     if model_candidate == "catboost":
         return Pipeline(
             steps=[
+                ("features", FraudFeatureTransformer()),
                 ("preprocess", _preprocessor(sparse_output=False)),
                 (
                     "model",
@@ -227,6 +240,7 @@ def _model_pipeline(
     if model_candidate == "lightgbm":
         return Pipeline(
             steps=[
+                ("features", FraudFeatureTransformer()),
                 ("preprocess", _preprocessor(sparse_output=False)),
                 (
                     "model",
@@ -298,8 +312,8 @@ def _tune_hyperparameters(
             fold_train = train.iloc[train_index]
             fold_validation = train.iloc[validation_index]
             model = _model_pipeline(model_candidate, params)
-            model.fit(_features(fold_train), fold_train["isFraud"].astype(int))
-            probabilities = model.predict_proba(_features(fold_validation))[:, 1]
+            model.fit(fold_train, fold_train["isFraud"].astype(int))
+            probabilities = model.predict_proba(fold_validation)[:, 1]
             labels = fold_validation["isFraud"].astype(int)
             fold_metrics.append(
                 {
@@ -372,11 +386,6 @@ def _preprocessor(sparse_output: bool) -> ColumnTransformer:
             ),
         ]
     )
-
-
-def _features(frame: pd.DataFrame) -> pd.DataFrame:
-    return frame.reindex(columns=MODEL_FEATURES)
-
 
 def main() -> None:
     parser = argparse.ArgumentParser()
