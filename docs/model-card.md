@@ -114,3 +114,15 @@ First-pass validation comparison:
 These runs use the first-pass leakage-safe transaction feature set. LightGBM is the strongest
 candidate on the current validation split, but it is not the final recommended fraud model until
 threshold, calibration, latency, and segment behavior are evaluated.
+
+### Threshold Analysis
+
+An initial threshold-grid report was run against the LightGBM candidate on the validation split with
+illustrative costs of `fraud_loss=500`, `review_cost=5`, and `false_block_cost=25`.
+
+| Approve threshold | Block threshold | Approve rate | Review rate | Block rate | Block precision | Block recall | False block rate |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.04 | 0.05 | 74.32% | 6.45% | 19.23% | 9.57% | 56.46% | 17.98% |
+
+This operating point is useful for comparison, not deployment. The false-block rate is too high for
+a real payment policy without explicit business constraints and segment review.

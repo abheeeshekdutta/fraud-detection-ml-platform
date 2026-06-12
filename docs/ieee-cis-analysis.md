@@ -131,11 +131,26 @@ What it does not prove yet:
 - Calibration has not been fit yet; the Brier score is only from raw model probabilities.
 - Segment behavior, especially for `ProductCD=C`, still needs threshold and false-positive analysis.
 
+## Threshold Analysis
+
+The first threshold report used the LightGBM candidate bundle, the 88,581-row validation split, and
+illustrative cost assumptions of `fraud_loss=500`, `review_cost=5`, and `false_block_cost=25`.
+
+Top utility point from the searched grid:
+
+| Approve threshold | Block threshold | Approve rate | Review rate | Block rate | Block precision | Block recall | False block rate |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.04 | 0.05 | 74.32% | 6.45% | 19.23% | 9.57% | 56.46% | 17.98% |
+
+This is not a production recommendation. It shows that under high fraud-loss assumptions, unconstrained
+utility optimization can choose an aggressive block policy with an unacceptable false-block rate.
+The next threshold pass should add business constraints such as minimum block precision, maximum false
+block rate, review capacity, and segment-specific checks.
+
 ## Recommended Next Modeling Steps
 
-1. Train CatBoost on the same time-based splits with native categorical handling.
-2. Train LightGBM with careful categorical encoding and missing-value handling.
-3. Compare models using PR-AUC, ROC-AUC, recall at fixed precision, Brier score, and latency.
-4. Fit probability calibration on the calibration split.
-5. Replace the simple conformal prediction set with a validation-backed conformal method.
-6. Add per-segment threshold analysis for `ProductCD`, especially `C` versus `W`.
+1. Add constrained threshold selection for review capacity and false-block limits.
+2. Fit probability calibration on the calibration split.
+3. Replace the simple conformal prediction set with a validation-backed conformal method.
+4. Add per-segment threshold analysis for `ProductCD`, especially `C` versus `W`.
+5. Measure candidate inference latency before promotion.

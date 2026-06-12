@@ -36,6 +36,22 @@ uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir a
 Without `--mlflow-tracking-uri`, training still writes the model bundle and `training_summary.json`,
 but no MLflow run is created.
 
+To compare approve/review/block operating points for a saved model bundle, run:
+
+```bash
+uv run fraud-thresholds \
+  --processed-dir data/processed \
+  --model-dir artifacts/model/candidates/lightgbm-features \
+  --output-path reports/generated/lightgbm_threshold_analysis.json \
+  --approve-thresholds 0.01,0.02,0.03,0.04 \
+  --block-thresholds 0.05,0.08,0.10,0.15,0.20,0.30 \
+  --fraud-loss 500 \
+  --review-cost 5 \
+  --false-block-cost 25
+```
+
+The report is generated locally under `reports/generated/` and is not committed.
+
 Start the local stack:
 
 ```bash

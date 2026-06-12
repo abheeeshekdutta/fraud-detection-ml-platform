@@ -129,7 +129,7 @@ LightGBM is the strongest first-pass candidate so far.
 
 1. Run tuned LightGBM and CatBoost benchmark jobs on the 100,000-row slice.
 2. Log the tuned run IDs and selected parameters in this document and the model card.
-3. Add threshold analysis for review/block operating points.
+3. Add constrained threshold analysis for review capacity and false-block limits.
 4. Add calibration and compare calibrated Brier score.
 5. Measure inference latency for the best candidate bundle.
 6. Revisit the search space after feature engineering improves the signal.

@@ -828,3 +828,40 @@ This document records implementation task summaries for learning and review.
   run IDs needed for traceability.
 - A small feature set can improve ranking metrics, but rare-event PR-AUC still needs tuning,
   calibration, threshold work, and stronger leakage-safe signal.
+
+## Task 22: Threshold Analysis Report
+
+**What changed**
+
+- Added threshold-grid metrics for approve/review/block operating points.
+- Added a `fraud-thresholds` CLI command that loads a saved model bundle, scores the validation split,
+  and writes a local JSON threshold report.
+- Ran an initial LightGBM threshold report using illustrative cost assumptions.
+- Updated the runbook, IEEE-CIS analysis, model card, and tuning notes with threshold guidance.
+
+**Problems faced**
+
+- Generic thresholds such as `0.8` are not useful for the current uncalibrated rare-event model
+  because most predicted probabilities are much lower.
+- Pure utility sorting can prefer aggressive blocking when fraud-loss assumptions are high.
+
+**Solutions applied**
+
+- Chose threshold grids based on the observed LightGBM validation score distribution.
+- Documented the top utility point as an analysis result, not a deployment recommendation.
+- Called out the need for constraints on block precision, false-block rate, review capacity, and
+  segment behavior.
+
+**Verification performed**
+
+- `uv run fraud-thresholds --processed-dir data/processed --model-dir artifacts/model/candidates/lightgbm-features --output-path reports/generated/lightgbm_threshold_analysis.json --approve-thresholds 0.01,0.02,0.03,0.04 --block-thresholds 0.05,0.08,0.10,0.15,0.20,0.30 --fraud-loss 500 --review-cost 5 --false-block-cost 25 --top-k 5`
+- Top searched operating point: approve threshold 0.04, block threshold 0.05, approve rate 74.32%,
+  review rate 6.45%, block rate 19.23%, block precision 9.57%, block recall 56.46%, false-block rate
+  17.98%.
+
+**Reusable learnings**
+
+- Threshold grids should be based on the model's actual score distribution, especially before
+  calibration.
+- Utility-only threshold selection needs business guardrails; otherwise it can optimize for catching
+  fraud while creating too many false blocks.
