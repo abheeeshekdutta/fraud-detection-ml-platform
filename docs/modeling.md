@@ -38,6 +38,10 @@ Purpose:
 
 CatBoost is a first-class candidate because the dataset has high-cardinality categoricals, missingness, and mixed tabular features. LightGBM remains a strong challenger because it is fast and often excellent on fraud-style tabular data.
 
+The IEEE-CIS trainer supports these candidates with `--model-candidate catboost` and
+`--model-candidate lightgbm`. Candidate runs use the same feature columns, artifact bundle format,
+validation metrics, and optional MLflow logging path as the logistic baseline.
+
 ### Optional Challenger
 
 - XGBoostClassifier

@@ -125,7 +125,134 @@ def test_train_ieee_baseline_model_logs_mlflow_run(tmp_path) -> None:
     runs = client.search_runs([experiment.experiment_id])
     assert len(runs) == 1
     assert runs[0].data.params["model_version"] == "ieee-logistic-baseline:1"
+    assert runs[0].data.params["model_candidate"] == "logistic_regression"
     assert "validation_pr_auc" in runs[0].data.metrics
+
+
+@pytest.mark.parametrize(
+    ("model_candidate", "expected_model_type"),
+    [
+        ("catboost", "catboost_ieee_candidate"),
+        ("lightgbm", "lightgbm_ieee_candidate"),
+    ],
+)
+@pytest.mark.filterwarnings("ignore:X does not have valid feature names.*:UserWarning")
+def test_train_ieee_baseline_model_supports_tree_candidates(
+    tmp_path,
+    model_candidate: str,
+    expected_model_type: str,
+) -> None:
+    processed_dir = tmp_path / "processed"
+    model_dir = tmp_path / "model"
+    processed_dir.mkdir()
+    frame = pd.DataFrame(
+        {
+            "TransactionID": list(range(1, 13)),
+            "TransactionDT": list(range(10, 130, 10)),
+            "TransactionAmt": [
+                20.0,
+                200.0,
+                35.0,
+                500.0,
+                75.0,
+                900.0,
+                42.0,
+                320.0,
+                18.0,
+                650.0,
+                54.0,
+                780.0,
+            ],
+            "ProductCD": ["W", "C", "W", "R", "H", "C", "W", "R", "H", "C", "W", "R"],
+            "card1": [
+                1001,
+                1002,
+                1001,
+                1003,
+                1004,
+                1002,
+                1005,
+                1003,
+                1004,
+                1002,
+                1001,
+                1003,
+            ],
+            "addr1": [
+                100.0,
+                200.0,
+                None,
+                300.0,
+                300.0,
+                200.0,
+                100.0,
+                300.0,
+                200.0,
+                300.0,
+                None,
+                100.0,
+            ],
+            "P_emaildomain": [
+                "a.test",
+                "b.test",
+                None,
+                "c.test",
+                "a.test",
+                "b.test",
+                "d.test",
+                "c.test",
+                None,
+                "b.test",
+                "a.test",
+                "c.test",
+            ],
+            "DeviceType": [
+                "desktop",
+                "mobile",
+                None,
+                "mobile",
+                "desktop",
+                "mobile",
+                "desktop",
+                "mobile",
+                None,
+                "mobile",
+                "desktop",
+                "mobile",
+            ],
+            "id_31": [
+                "chrome",
+                "safari",
+                None,
+                "firefox",
+                "chrome",
+                "safari",
+                "edge",
+                "firefox",
+                None,
+                "safari",
+                "chrome",
+                "firefox",
+            ],
+            "isFraud": [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+        }
+    )
+    frame.iloc[:8].to_parquet(processed_dir / "train.parquet", index=False)
+    frame.iloc[8:].to_parquet(processed_dir / "validation.parquet", index=False)
+
+    metadata = train_ieee_baseline_model(
+        processed_dir=processed_dir,
+        output_dir=model_dir,
+        model_candidate=model_candidate,
+    )
+    bundle = load_model_bundle(model_dir)
+    training_summary = json.loads((model_dir / "training_summary.json").read_text())
+
+    assert metadata.model_version == f"ieee-{model_candidate}:1"
+    assert metadata.model_type == expected_model_type
+    assert bundle.metadata.model_type == expected_model_type
+    assert training_summary["model_candidate"] == model_candidate
+    assert 0.0 <= training_summary["validation_pr_auc"] <= 1.0
 
 
 def test_prepare_ieee_cli_mode_exits_after_writing_splits(

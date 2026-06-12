@@ -606,3 +606,43 @@ This document records implementation task summaries for learning and review.
   may receive container-local paths they cannot write to.
 - Experiment tracking should be added as soon as real baseline modeling begins so every comparison
   candidate has durable params, metrics, and artifacts.
+
+## Task 16: IEEE-CIS Model Candidate Switch
+
+**What changed**
+
+- Added `--model-candidate` support to the IEEE-CIS training path.
+- Kept `logistic_regression` as the default candidate.
+- Added CatBoost and LightGBM candidate pipelines that use the same feature columns, artifact bundle,
+  validation summary, and optional MLflow logging path.
+- Added regression tests for CatBoost and LightGBM artifact generation.
+- Updated README, runbook, modeling plan, and model card docs with the new candidate option.
+
+**Problems faced**
+
+- The first test run failed as expected because `train_ieee_baseline_model()` did not accept a model
+  candidate argument yet.
+- The first implementation pass briefly built the shared preprocessor with the wrong sklearn helper
+  shape, which would not have worked as a column transformer.
+- Ruff caught several long synthetic-data lines in the new regression test.
+
+**Solutions applied**
+
+- Added a shared model-candidate dispatch layer with explicit model version and model type mappings.
+- Reused the existing preprocessing behavior for logistic regression and produced dense transformed
+  features for CatBoost and LightGBM.
+- Broke the test fixture values onto multiple lines and added an MLflow assertion for the logged
+  model candidate.
+
+**Verification performed**
+
+- `uv run pytest tests/test_ieee_pipeline.py::test_train_ieee_baseline_model_supports_tree_candidates -q`
+- `uv run pytest tests/test_deployment_config.py tests/test_ieee_pipeline.py tests/test_training.py -q`
+- `uv run ruff check src/fraud_platform/training.py tests/test_ieee_pipeline.py tests/test_deployment_config.py`
+
+**Reusable learnings**
+
+- Adding model candidates through one artifact/logging path keeps benchmarking comparable and avoids
+  separate one-off training scripts.
+- For sklearn-compatible tree models, dense preprocessed features are the least surprising integration
+  point when the existing baseline already owns categorical imputation and encoding.

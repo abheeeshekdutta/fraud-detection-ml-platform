@@ -110,4 +110,4 @@ Validation metrics:
 - Brier score: 0.0307
 
 This is a baseline for platform validation and comparison. It is not the final recommended fraud
-model; CatBoost and LightGBM should be benchmarked next.
+model; CatBoost and LightGBM candidate training is available for follow-up benchmark runs.

@@ -7,6 +7,8 @@ from pathlib import Path
 import mlflow
 import mlflow.sklearn
 import pandas as pd
+from catboost import CatBoostClassifier
+from lightgbm import LGBMClassifier
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
@@ -20,6 +22,7 @@ from fraud_platform.datasets import prepare_ieee_cis_splits
 CATEGORICAL_FEATURES = ["ProductCD", "P_emaildomain", "DeviceType", "id_31"]
 NUMERIC_FEATURES = ["TransactionAmt", "card1", "addr1"]
 MODEL_FEATURES = NUMERIC_FEATURES + CATEGORICAL_FEATURES
+MODEL_CANDIDATES = ("logistic_regression", "catboost", "lightgbm")
 
 
 def _synthetic_training_frame() -> tuple[pd.DataFrame, pd.Series]:
@@ -83,6 +86,7 @@ def train_ieee_baseline_model(
     processed_dir: str | Path = "data/processed",
     output_dir: str | Path = "artifacts/model/latest",
     max_train_rows: int | None = None,
+    model_candidate: str = "logistic_regression",
     mlflow_tracking_uri: str | None = None,
     mlflow_experiment_name: str = "fraud-detection-ieee",
 ) -> ModelMetadata:
@@ -92,20 +96,21 @@ def train_ieee_baseline_model(
     if max_train_rows is not None and len(train) > max_train_rows:
         train = train.tail(max_train_rows).copy()
 
-    model = _logistic_regression_pipeline()
+    model = _model_pipeline(model_candidate)
     model.fit(_features(train), train["isFraud"].astype(int))
     probabilities = model.predict_proba(_features(validation))[:, 1]
     labels = validation["isFraud"].astype(int)
     metadata = ModelMetadata(
-        model_version="ieee-logistic-baseline:1",
+        model_version=_model_version(model_candidate),
         feature_schema_version="v1",
         decision_policy_version="v1",
-        model_type="logistic_regression_ieee_baseline",
+        model_type=_model_type(model_candidate),
     )
     save_model_bundle(ModelBundle(model=model, metadata=metadata), output_dir)
     summary = {
         "train_rows": int(len(train)),
         "validation_rows": int(len(validation)),
+        "model_candidate": model_candidate,
         "train_fraud_rate": float(train["isFraud"].mean()),
         "validation_fraud_rate": float(labels.mean()),
         "validation_roc_auc": float(roc_auc_score(labels, probabilities)),
@@ -140,6 +145,7 @@ def _log_mlflow_run(
             {
                 "model_version": metadata.model_version,
                 "model_type": metadata.model_type,
+                "model_candidate": summary["model_candidate"],
                 "feature_schema_version": metadata.feature_schema_version,
                 "decision_policy_version": metadata.decision_policy_version,
                 "max_train_rows": max_train_rows or summary["train_rows"],
@@ -160,37 +166,99 @@ def _log_mlflow_run(
 def _logistic_regression_pipeline() -> Pipeline:
     return Pipeline(
         steps=[
+            ("preprocess", _preprocessor(sparse_output=True)),
+            ("model", LogisticRegression(max_iter=1000)),
+        ]
+    )
+
+
+def _model_pipeline(model_candidate: str) -> Pipeline:
+    if model_candidate == "logistic_regression":
+        return _logistic_regression_pipeline()
+    if model_candidate == "catboost":
+        return Pipeline(
+            steps=[
+                ("preprocess", _preprocessor(sparse_output=False)),
+                (
+                    "model",
+                    CatBoostClassifier(
+                        iterations=50,
+                        depth=4,
+                        learning_rate=0.1,
+                        loss_function="Logloss",
+                        random_seed=42,
+                        verbose=False,
+                        allow_writing_files=False,
+                    ),
+                ),
+            ]
+        )
+    if model_candidate == "lightgbm":
+        return Pipeline(
+            steps=[
+                ("preprocess", _preprocessor(sparse_output=False)),
+                (
+                    "model",
+                    LGBMClassifier(
+                        n_estimators=50,
+                        learning_rate=0.1,
+                        num_leaves=7,
+                        random_state=42,
+                        verbose=-1,
+                    ),
+                ),
+            ]
+        )
+    raise ValueError(f"Unsupported model candidate: {model_candidate}")
+
+
+def _model_version(model_candidate: str) -> str:
+    versions = {
+        "logistic_regression": "ieee-logistic-baseline:1",
+        "catboost": "ieee-catboost:1",
+        "lightgbm": "ieee-lightgbm:1",
+    }
+    return versions[model_candidate]
+
+
+def _model_type(model_candidate: str) -> str:
+    model_types = {
+        "logistic_regression": "logistic_regression_ieee_baseline",
+        "catboost": "catboost_ieee_candidate",
+        "lightgbm": "lightgbm_ieee_candidate",
+    }
+    return model_types[model_candidate]
+
+
+def _preprocessor(sparse_output: bool) -> ColumnTransformer:
+    return ColumnTransformer(
+        transformers=[
             (
-                "preprocess",
-                ColumnTransformer(
-                    transformers=[
+                "categorical",
+                Pipeline(
+                    steps=[
                         (
-                            "categorical",
-                            Pipeline(
-                                steps=[
-                                    (
-                                        "impute",
-                                        SimpleImputer(strategy="constant", fill_value="missing"),
-                                    ),
-                                    ("encode", OneHotEncoder(handle_unknown="ignore")),
-                                ]
-                            ),
-                            CATEGORICAL_FEATURES,
+                            "impute",
+                            SimpleImputer(strategy="constant", fill_value="missing"),
                         ),
                         (
-                            "numeric",
-                            Pipeline(
-                                steps=[
-                                    ("impute", SimpleImputer(strategy="median")),
-                                    ("scale", StandardScaler()),
-                                ]
-                            ),
-                            NUMERIC_FEATURES,
+                            "encode",
+                            OneHotEncoder(handle_unknown="ignore", sparse_output=sparse_output),
                         ),
                     ]
                 ),
+                CATEGORICAL_FEATURES,
             ),
-            ("model", LogisticRegression(max_iter=1000)),
+            (
+                "numeric",
+                Pipeline(
+                    steps=[
+                        ("impute", SimpleImputer(strategy="median")),
+                        ("scale", StandardScaler()),
+                    ]
+                ),
+                NUMERIC_FEATURES,
+            ),
         ]
     )
 
@@ -208,6 +276,11 @@ def main() -> None:
     parser.add_argument("--processed-dir", default="data/processed")
     parser.add_argument("--output-dir", default="artifacts/model/latest")
     parser.add_argument("--max-train-rows", type=int)
+    parser.add_argument(
+        "--model-candidate",
+        choices=MODEL_CANDIDATES,
+        default="logistic_regression",
+    )
     parser.add_argument("--mlflow-tracking-uri")
     parser.add_argument("--mlflow-experiment-name", default="fraud-detection-ieee")
     args = parser.parse_args()
@@ -222,6 +295,7 @@ def main() -> None:
             processed_dir=args.processed_dir,
             output_dir=args.output_dir,
             max_train_rows=args.max_train_rows,
+            model_candidate=args.model_candidate,
             mlflow_tracking_uri=args.mlflow_tracking_uri,
             mlflow_experiment_name=args.mlflow_experiment_name,
         )
