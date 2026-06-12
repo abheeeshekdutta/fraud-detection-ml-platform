@@ -558,3 +558,51 @@ This document records implementation task summaries for learning and review.
 - Real fraud datasets need time-based splits before model quality claims; random splits would hide drift.
 - Identity coverage can be sparse in production-like fraud data, so identity features should be treated as optional enrichment.
 - A quick logistic baseline is useful as a floor, but rare-event PR-AUC and segment risk show why CatBoost/LightGBM benchmarking is still needed.
+
+## Task 15: MLflow Baseline Tracking
+
+**What changed**
+
+- Added optional MLflow tracking to the IEEE-CIS logistic baseline training path.
+- Logged baseline parameters, validation metrics, and the sklearn model when
+  `--mlflow-tracking-uri` is provided.
+- Added a regression test that verifies training creates an MLflow experiment and run.
+- Updated Docker Compose so the local MLflow server serves artifacts through HTTP instead of
+  exposing a container-local artifact path to the host training process.
+- Updated README, runbook, model card, and IEEE-CIS analysis docs with the MLflow-enabled command.
+
+**Problems faced**
+
+- The logistic regression model was not in MLflow because the previous baseline slice only saved the
+  local model bundle and `training_summary.json`; MLflow run logging had not been implemented yet.
+- The first live MLflow logging attempt created a run but failed while saving the model artifact.
+- MLflow advertised `/mlflow/artifacts` as the artifact root, so the host-side training process tried
+  to write to `/mlflow` on macOS and hit a read-only filesystem error.
+- The recreated MLflow container took time to become ready because it installs MLflow at startup.
+
+**Solutions applied**
+
+- Added explicit MLflow setup in training: set tracking URI, set experiment, start a run, then log
+  params, metrics, and the sklearn pipeline model.
+- Used a SQLite MLflow backend in the unit test so the behavior can be verified without Docker.
+- Switched the Compose MLflow command to `--serve-artifacts --artifacts-destination /mlflow/artifacts`
+  so artifact upload goes through the tracking server.
+- Verified readiness with a retry loop before rerunning live training.
+
+**Verification performed**
+
+- `uv run pytest tests/test_deployment_config.py tests/test_ieee_pipeline.py tests/test_training.py -q`
+- `uv run ruff check src/fraud_platform/training.py tests/test_ieee_pipeline.py tests/test_deployment_config.py`
+- `docker compose up -d --force-recreate mlflow`
+- `curl -f http://localhost:5001`
+- `uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir artifacts/model/latest --max-train-rows 100000 --mlflow-tracking-uri http://localhost:5001 --mlflow-experiment-name fraud-detection-ieee`
+- Queried MLflow and confirmed run `537422fa43054c8b9c58c0c49ab867f6` finished with ROC-AUC 0.7023,
+  PR-AUC 0.0977, and Brier score 0.0307.
+
+**Reusable learnings**
+
+- Saving a model artifact locally and logging a model to MLflow are separate responsibilities.
+- Local Docker MLflow should proxy artifacts when training runs on the host, otherwise host processes
+  may receive container-local paths they cannot write to.
+- Experiment tracking should be added as soon as real baseline modeling begins so every comparison
+  candidate has durable params, metrics, and artifacts.

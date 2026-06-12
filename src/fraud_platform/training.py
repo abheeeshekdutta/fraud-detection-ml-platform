@@ -4,6 +4,8 @@ import argparse
 import json
 from pathlib import Path
 
+import mlflow
+import mlflow.sklearn
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
@@ -81,6 +83,8 @@ def train_ieee_baseline_model(
     processed_dir: str | Path = "data/processed",
     output_dir: str | Path = "artifacts/model/latest",
     max_train_rows: int | None = None,
+    mlflow_tracking_uri: str | None = None,
+    mlflow_experiment_name: str = "fraud-detection-ieee",
 ) -> ModelMetadata:
     processed_path = Path(processed_dir)
     train = pd.read_parquet(processed_path / "train.parquet")
@@ -109,7 +113,48 @@ def train_ieee_baseline_model(
         "validation_brier_score": float(brier_score_loss(labels, probabilities)),
     }
     Path(output_dir, "training_summary.json").write_text(json.dumps(summary, indent=2))
+    if mlflow_tracking_uri:
+        _log_mlflow_run(
+            model=model,
+            metadata=metadata,
+            summary=summary,
+            tracking_uri=mlflow_tracking_uri,
+            experiment_name=mlflow_experiment_name,
+            max_train_rows=max_train_rows,
+        )
     return metadata
+
+
+def _log_mlflow_run(
+    model: Pipeline,
+    metadata: ModelMetadata,
+    summary: dict[str, float | int],
+    tracking_uri: str,
+    experiment_name: str,
+    max_train_rows: int | None,
+) -> None:
+    mlflow.set_tracking_uri(tracking_uri)
+    mlflow.set_experiment(experiment_name)
+    with mlflow.start_run(run_name=metadata.model_version):
+        mlflow.log_params(
+            {
+                "model_version": metadata.model_version,
+                "model_type": metadata.model_type,
+                "feature_schema_version": metadata.feature_schema_version,
+                "decision_policy_version": metadata.decision_policy_version,
+                "max_train_rows": max_train_rows or summary["train_rows"],
+            }
+        )
+        mlflow.log_metrics(
+            {
+                "train_fraud_rate": float(summary["train_fraud_rate"]),
+                "validation_fraud_rate": float(summary["validation_fraud_rate"]),
+                "validation_roc_auc": float(summary["validation_roc_auc"]),
+                "validation_pr_auc": float(summary["validation_pr_auc"]),
+                "validation_brier_score": float(summary["validation_brier_score"]),
+            }
+        )
+        mlflow.sklearn.log_model(model, name="model")
 
 
 def _logistic_regression_pipeline() -> Pipeline:
@@ -163,6 +208,8 @@ def main() -> None:
     parser.add_argument("--processed-dir", default="data/processed")
     parser.add_argument("--output-dir", default="artifacts/model/latest")
     parser.add_argument("--max-train-rows", type=int)
+    parser.add_argument("--mlflow-tracking-uri")
+    parser.add_argument("--mlflow-experiment-name", default="fraud-detection-ieee")
     args = parser.parse_args()
     if args.prepare_ieee:
         prepare_ieee_cis_splits(raw_dir=args.raw_dir, output_dir=args.processed_dir)
@@ -175,6 +222,8 @@ def main() -> None:
             processed_dir=args.processed_dir,
             output_dir=args.output_dir,
             max_train_rows=args.max_train_rows,
+            mlflow_tracking_uri=args.mlflow_tracking_uri,
+            mlflow_experiment_name=args.mlflow_experiment_name,
         )
         return
     raise SystemExit("Choose --synthetic, --prepare-ieee, or --ieee-baseline")

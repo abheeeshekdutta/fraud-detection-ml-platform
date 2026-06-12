@@ -100,6 +100,8 @@ The first real-data artifact is:
 - `model_type`: `logistic_regression_ieee_baseline`
 - training sample: most recent 100,000 rows from the time-ordered training split
 - validation split: 88,581 later transactions
+- MLflow experiment: `fraud-detection-ieee`
+- latest logged MLflow run: `537422fa43054c8b9c58c0c49ab867f6`
 
 Validation metrics:
 

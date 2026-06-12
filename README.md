@@ -143,7 +143,10 @@ uv run fraud-train --prepare-ieee --raw-dir data/raw --processed-dir data/proces
 uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir artifacts/model/latest --max-train-rows 100000
 ```
 
-The current IEEE-CIS baseline is a comparison floor. CatBoost and LightGBM benchmarking comes next.
+The real-data baseline writes a local model bundle to `artifacts/model/latest`. To also log metrics,
+parameters, and the sklearn model to MLflow, start the local MLflow service first and pass
+`--mlflow-tracking-uri http://localhost:5001`. The current IEEE-CIS baseline is a comparison floor.
+CatBoost and LightGBM benchmarking comes next.
 
 ## Documentation
 

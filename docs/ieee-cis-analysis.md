@@ -76,13 +76,19 @@ iteration runs quickly while still respecting time order.
 
 Command:
 
+Requires local MLflow to be running at `http://localhost:5001` for the tracking step.
+
 ```bash
 uv run fraud-train \
   --ieee-baseline \
   --processed-dir data/processed \
   --output-dir artifacts/model/latest \
-  --max-train-rows 100000
+  --max-train-rows 100000 \
+  --mlflow-tracking-uri http://localhost:5001
 ```
+
+The model bundle is always written locally. MLflow logging happens only when
+`--mlflow-tracking-uri` is provided.
 
 Model artifact:
 
@@ -90,6 +96,8 @@ Model artifact:
 - `model_type`: `logistic_regression_ieee_baseline`
 - `feature_schema_version`: `v1`
 - `decision_policy_version`: `v1`
+- MLflow experiment: `fraud-detection-ieee`
+- MLflow run: `537422fa43054c8b9c58c0c49ab867f6`
 
 Validation metrics:
 
@@ -109,6 +117,7 @@ What it proves:
 
 - The project can now train from the actual IEEE-CIS files.
 - The platform can produce a model artifact from real data, not just synthetic rows.
+- The platform can log the baseline model, parameters, and validation metrics to MLflow.
 - The validation score is meaningfully above random, so the selected features carry signal.
 - The replay split exists, which unlocks Kafka replay with `data/processed/replay.parquet`.
 

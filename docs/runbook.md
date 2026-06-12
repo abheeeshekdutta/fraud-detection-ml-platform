@@ -15,6 +15,17 @@ uv run fraud-train --prepare-ieee --raw-dir data/raw --processed-dir data/proces
 uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir artifacts/model/latest --max-train-rows 100000
 ```
 
+To record the baseline run in local MLflow, start MLflow first and rerun the training command with a
+tracking URI:
+
+```bash
+docker compose up -d mlflow
+uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir artifacts/model/latest --max-train-rows 100000 --mlflow-tracking-uri http://localhost:5001
+```
+
+Without `--mlflow-tracking-uri`, training still writes the model bundle and `training_summary.json`,
+but no MLflow run is created.
+
 Start the local stack:
 
 ```bash

@@ -29,6 +29,10 @@ def test_compose_stack_defines_expected_services_and_ports() -> None:
     assert "5173:80" in services["dashboard"]["ports"]
     assert "5001:5000" in services["mlflow"]["ports"]
     assert "5000:5000" not in services["mlflow"]["ports"]
+    mlflow_command = services["mlflow"]["command"]
+    assert "--serve-artifacts" in mlflow_command
+    assert "--artifacts-destination /mlflow/artifacts" in mlflow_command
+    assert "--default-artifact-root /mlflow/artifacts" not in mlflow_command
     assert services["fraud-api"]["environment"]["DATABASE_URL"].endswith("@postgres:5432/fraud")
     for service_name in (
         "fraud-api",
