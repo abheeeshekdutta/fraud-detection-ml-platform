@@ -55,18 +55,30 @@ Prometheus should scrape service metrics. Grafana should visualize operational h
 ## Alert Examples
 
 - missingness in identity features increases beyond threshold
-- review rate doubles compared with reference period
+- review rate doubles compared with the configured reference period
 - conformal coverage falls below target
 - p95 scoring latency exceeds target
 - dead-letter event rate exceeds threshold
 - fraud score distribution shifts materially
 
+## Implemented Worker
+
+The current `fraud-monitor` worker reads recent persisted prediction records from Postgres, computes
+the current approve/review/block mix, and saves a `decision_rate_shift` alert when the review rate is
+greater than or equal to `MONITORING_REFERENCE_REVIEW_RATE * MONITORING_REVIEW_RATE_MULTIPLIER`.
+
+It runs continuously in Docker Compose and can be run once for local checks:
+
+```bash
+uv run fraud-monitor --once
+```
+
 ## Alert Routing
 
 Alerts should be written to:
 
-- `model-alerts` Kafka topic
 - Postgres alert table
 - dashboard alert panel
+- `model-alerts` Kafka topic
 
 No paid paging service is required.

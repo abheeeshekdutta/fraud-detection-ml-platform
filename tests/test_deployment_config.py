@@ -41,6 +41,10 @@ def test_compose_stack_defines_expected_services_and_ports() -> None:
         "monitoring-worker",
     ):
         assert services[service_name]["environment"]["MLFLOW_TRACKING_URI"] == "http://mlflow:5000"
+    assert (
+        services["monitoring-worker"]["environment"]["MONITORING_REFERENCE_REVIEW_RATE"]
+        == "${MONITORING_REFERENCE_REVIEW_RATE:-0.10}"
+    )
     assert services["fraud-consumer"]["command"][0] == "fraud-consumer"
     assert "--calibrator-path" in services["fraud-consumer"]["command"]
 

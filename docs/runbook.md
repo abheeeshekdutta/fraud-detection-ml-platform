@@ -92,6 +92,16 @@ CALIBRATOR_PATH=artifacts/calibration/lightgbm-isotonic/calibrator.pkl
 `fraud-api` reads `CALIBRATOR_PATH` from settings. `fraud-consumer` receives the same value through
 its `--calibrator-path` argument in Compose.
 
+The monitoring worker reads recent persisted decisions and writes review-rate shift alerts to
+Postgres. Configure its first local guardrail with:
+
+```bash
+MONITORING_REFERENCE_REVIEW_RATE=0.10
+MONITORING_REVIEW_RATE_MULTIPLIER=2.0
+MONITORING_PREDICTION_LIMIT=500
+MONITORING_INTERVAL_SECONDS=60
+```
+
 Start the local stack:
 
 ```bash
@@ -106,6 +116,8 @@ starts, and attaches to services defined in the Compose file.
 - API health: `curl http://localhost:8000/health`
 - API docs: `http://localhost:8000/docs`
 - API metrics: `curl http://localhost:8000/metrics`
+- Dashboard feed: `curl http://localhost:8000/predictions`
+- Alert feed: `curl http://localhost:8000/alerts`
 - Dashboard: `http://localhost:5173`
 - MLflow: `http://localhost:5001`
 - Grafana: `http://localhost:3000`

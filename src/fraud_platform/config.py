@@ -13,3 +13,7 @@ class Settings(BaseSettings):
     model_bundle_path: str = "artifacts/model/latest"
     decision_policy_path: str = "configs/decision_policy.yaml"
     calibrator_path: str | None = None
+    monitoring_interval_seconds: float = 60.0
+    monitoring_prediction_limit: int = 500
+    monitoring_reference_review_rate: float = 0.10
+    monitoring_review_rate_multiplier: float = 2.0

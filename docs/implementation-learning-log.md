@@ -1011,3 +1011,40 @@ This document records implementation task summaries for learning and review.
   empty data from connectivity problems quickly.
 - Event-loop services are easier to extend when optional side effects, such as persistence, are
   injected into the message-processing helper rather than hidden in the polling loop.
+
+## Task 27: Monitoring Worker Alert Persistence
+
+**What changed**
+
+- Replaced the placeholder `fraud-monitor` entrypoint with a real review-rate shift worker.
+- Added monitoring settings for interval, prediction window size, reference review rate, and shift
+  multiplier.
+- Wired the Docker Compose monitoring-worker service with explicit monitoring environment values.
+- Updated README, monitoring docs, and runbook notes for the implemented worker.
+
+**Problems faced**
+
+- The monitoring module had alert calculations, but the console entrypoint only printed a placeholder
+  message.
+- The raw Compose test reads YAML before environment interpolation, so deployment assertions need to
+  check the configured default expression rather than the rendered value.
+
+**Solutions applied**
+
+- Added focused tests for one-shot monitoring checks that persist alerts and stay quiet when no
+  predictions exist.
+- Implemented `run_monitoring_check()` for testable business logic and `run_monitoring_loop()` for
+  the long-running worker.
+- Kept the first worker narrow: recent decision mix to `decision_rate_shift` alerts in Postgres.
+
+**Verification performed**
+
+- `uv run pytest tests/test_monitoring.py tests/test_deployment_config.py -q`
+- `uv run ruff check src/fraud_platform/monitoring.py src/fraud_platform/config.py tests/test_monitoring.py tests/test_deployment_config.py`
+
+**Reusable learnings**
+
+- Long-running worker entrypoints should delegate to one-shot helpers so alert behavior can be tested
+  without sleeping or starting Docker services.
+- Compose tests that parse YAML directly should assert raw interpolation expressions; rendered values
+  belong in `docker compose config` verification.
