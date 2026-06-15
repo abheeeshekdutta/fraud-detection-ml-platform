@@ -104,6 +104,10 @@ services:
       - kafka:29092
       - --replay-path
       - data/processed/replay.parquet
+      - --label-topic
+      - fraud-labels
+      - --label-delay-seconds
+      - ${LABEL_DELAY_SECONDS:-30}
     volumes:
       - ./data:/app/data
     depends_on:

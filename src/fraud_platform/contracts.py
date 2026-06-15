@@ -144,3 +144,19 @@ class AlertEvent(BaseModel):
     @classmethod
     def validate_metadata(cls, value: Any) -> Any:
         return _validate_json_map(value)
+
+
+class FraudLabelEvent(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    event_id: str = Field(min_length=1)
+    transaction_id: int = Field(gt=0)
+    labeled_at: AwareDatetime
+    is_fraud: bool
+    label_source: str = Field(min_length=1)
+    schema_version: str = Field(min_length=1)
+
+    @field_validator("labeled_at", mode="before")
+    @classmethod
+    def parse_labeled_at(cls, value: Any) -> Any:
+        return _parse_aware_datetime(value)

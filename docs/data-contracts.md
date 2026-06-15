@@ -89,3 +89,12 @@ Minimum checks:
 ## Label Delay Simulation
 
 Production fraud labels often arrive after chargebacks, reviews, or investigations. This project should simulate delayed labels by publishing replay labels after a configurable delay to `fraud-labels`.
+
+The replay label event includes:
+
+- `event_id`
+- `transaction_id`
+- `labeled_at`
+- `is_fraud`
+- `label_source`
+- `schema_version`

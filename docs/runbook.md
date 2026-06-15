@@ -108,6 +108,13 @@ Start the local stack:
 docker compose up --build
 ```
 
+The transaction producer publishes replayed transactions to `transaction-events` and, when labels are
+present in the replay data, delayed outcomes to `fraud-labels`. Tune the simulated label delay with:
+
+```bash
+LABEL_DELAY_SECONDS=30
+```
+
 Docker's Compose reference describes `docker compose up` as the command that builds, creates,
 starts, and attaches to services defined in the Compose file.
 

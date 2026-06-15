@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import pandas as pd
 
 from fraud_platform.consumer import consume_available_messages, run_consumer
-from fraud_platform.contracts import DecisionEvent, TransactionEvent
+from fraud_platform.contracts import DecisionEvent, FraudLabelEvent, TransactionEvent
 from fraud_platform.replay import replay_frame
 from fraud_platform.streaming import deserialize_event, serialize_event
 
@@ -22,6 +22,22 @@ def test_serialize_deserialize_transaction_event() -> None:
 
     payload = serialize_event(event)
     restored = deserialize_event(payload, TransactionEvent)
+
+    assert restored == event
+
+
+def test_serialize_deserialize_fraud_label_event() -> None:
+    event = FraudLabelEvent(
+        event_id="label-1",
+        transaction_id=1,
+        labeled_at=datetime(2026, 6, 10, 12, 30, tzinfo=UTC),
+        is_fraud=True,
+        label_source="ieee_replay",
+        schema_version="v1",
+    )
+
+    payload = serialize_event(event)
+    restored = deserialize_event(payload, FraudLabelEvent)
 
     assert restored == event
 
@@ -66,6 +82,39 @@ def test_replay_frame_publishes_transactions_in_time_order() -> None:
     assert [key for _, key, _ in producer.produced] == ["1", "2"]
     first_event = deserialize_event(producer.produced[0][2], TransactionEvent)
     assert first_event.transaction_id == 1
+
+
+def test_replay_frame_publishes_delayed_labels_when_topic_is_configured() -> None:
+    frame = pd.DataFrame(
+        {
+            "TransactionID": [1],
+            "TransactionDT": [10],
+            "TransactionAmt": [20.0],
+            "ProductCD": ["W"],
+            "isFraud": [1],
+        }
+    )
+    producer = FakeProducer()
+
+    count = replay_frame(
+        frame,
+        producer=producer,
+        topic="transaction-events",
+        label_topic="fraud-labels",
+        label_delay_seconds=30,
+        speed_multiplier=1000.0,
+        sleep=lambda _: None,
+    )
+
+    assert count == 1
+    assert [topic for topic, _, _ in producer.produced] == [
+        "transaction-events",
+        "fraud-labels",
+    ]
+    label = deserialize_event(producer.produced[1][2], FraudLabelEvent)
+    assert label.transaction_id == 1
+    assert label.is_fraud is True
+    assert label.label_source == "ieee_replay"
 
 
 class FakeMessage:

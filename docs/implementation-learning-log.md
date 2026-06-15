@@ -1048,3 +1048,38 @@ This document records implementation task summaries for learning and review.
   without sleeping or starting Docker services.
 - Compose tests that parse YAML directly should assert raw interpolation expressions; rendered values
   belong in `docker compose config` verification.
+
+## Task 28: Delayed Label Replay Events
+
+**What changed**
+
+- Added a strict `FraudLabelEvent` contract for delayed fraud outcomes.
+- Added optional label publishing to the replay producer when replay rows include `isFraud`.
+- Wired the Compose transaction producer to publish labels to `fraud-labels` with
+  `LABEL_DELAY_SECONDS`.
+- Updated README, data contracts, and runbook notes for delayed label replay.
+
+**Problems faced**
+
+- The project declared a `fraud-labels` topic and delayed-label monitoring plans, but replay only
+  emitted transaction events.
+- Replay settings such as `REPLAY_DATA_PATH`, `REPLAY_SPEED_MULTIPLIER`, and `LABEL_DELAY_SECONDS`
+  existed in `.env.example` but were not represented in typed settings.
+
+**Solutions applied**
+
+- Added failing streaming tests for label-event serialization and replay label publication.
+- Kept label publication optional so replay files without labels still publish transactions normally.
+- Added the missing replay settings to `Settings`.
+
+**Verification performed**
+
+- `uv run pytest tests/test_streaming.py tests/test_contracts.py tests/test_deployment_config.py -q`
+- `uv run ruff check src/fraud_platform/contracts.py src/fraud_platform/replay.py src/fraud_platform/config.py tests/test_streaming.py tests/test_deployment_config.py`
+
+**Reusable learnings**
+
+- Declared Kafka topics should have at least a smoke producer or consumer path before they appear in
+  operator docs.
+- Environment variables in `.env.example` should be mirrored in typed settings to keep CLI defaults
+  and Compose behavior aligned.
