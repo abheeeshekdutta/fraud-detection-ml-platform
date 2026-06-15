@@ -36,7 +36,7 @@ Purpose:
 - Use those findings to decide CatBoost and LightGBM preprocessing choices.
 - Decide how to structure time-based train, calibration, validation, and replay splits.
 
-## 3. Train The Current Smoke Model
+## 3. Train A Local Model Artifact
 
 ```bash
 uv run fraud-train --synthetic --output-dir artifacts/model/latest
@@ -44,13 +44,27 @@ uv run fraud-train --synthetic --output-dir artifacts/model/latest
 
 Expected outputs:
 
-- `artifacts/model/latest/model.joblib`
+- `artifacts/model/latest/model.pkl`
 - `artifacts/model/latest/metadata.json`
 
 Purpose:
 
 - Create a small local model artifact so API and streaming slices can be tested before full IEEE-CIS
-  training is implemented.
+  training is run.
+
+For the real-data baseline after processed splits exist:
+
+```bash
+uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir artifacts/model/latest
+```
+
+Optional follow-on artifacts:
+
+```bash
+uv run fraud-calibrate --processed-dir data/processed --model-dir artifacts/model/latest --output-dir artifacts/calibration/latest
+uv run fraud-conformal --processed-dir data/processed --model-dir artifacts/model/latest --output-dir artifacts/conformal/latest
+uv run fraud-explain --processed-dir data/processed --model-dir artifacts/model/latest --output-dir artifacts/explain/latest
+```
 
 ## 4. Run The Scoring API
 
@@ -110,12 +124,15 @@ After a processed replay dataset exists:
 uv run fraud-replay \
   --replay-path data/processed/replay.parquet \
   --bootstrap-servers localhost:9092 \
-  --topic transaction-events
+  --topic transaction-events \
+  --label-topic fraud-labels \
+  --label-delay-seconds 30
 ```
 
 Expected output:
 
 - Transaction messages published to the Kafka `transaction-events` topic.
+- Delayed label messages published to the Kafka `fraud-labels` topic when `isFraud` is present.
 
 Purpose:
 
@@ -129,27 +146,44 @@ uv run fraud-consumer \
   --input-topic transaction-events \
   --output-topic fraud-decisions \
   --model-path artifacts/model/latest \
-  --policy-path configs/decision_policy.yaml
+  --policy-path configs/decision_policy.yaml \
+  --database-url postgresql+psycopg://fraud:fraud@localhost:5432/fraud \
+  --dead-letter-topic dead-letter-events
 ```
 
 Expected output:
 
 - Scored decision messages published to the Kafka `fraud-decisions` topic.
+- Prediction rows persisted to Postgres when `--database-url` is set.
+- Invalid transaction messages published to `dead-letter-events`.
 
 Purpose:
 
 - Consume transaction events, score them with the model bundle, apply the decision policy, and emit
   governed fraud decisions.
 
-## 8. Store Predictions And Alerts
+## 8. Monitor Decisions And Store Alerts
 
-The storage repositories are implemented, but wiring Kafka decisions into Postgres persistence is a
-later slice.
+Run the monitoring worker once against persisted predictions:
 
-Expected output after that wiring exists:
+```bash
+uv run fraud-monitor --once
+```
+
+Generate an offline monitoring report:
+
+```bash
+uv run fraud-monitor-report \
+  --reference-path data/processed/validation.parquet \
+  --current-path data/processed/replay.parquet \
+  --output-path reports/generated/monitoring_report.json
+```
+
+Expected outputs:
 
 - Rows in the `predictions` table.
 - Rows in the `alerts` table.
+- `reports/generated/monitoring_report.json`
 
 ## 9. Run The Fraud Operations Dashboard
 
@@ -174,7 +208,8 @@ Expected UI:
 Purpose:
 
 - Give fraud analysts a local operations console for inspecting model decisions and alert status.
-- Use fallback demo data when backend prediction and alert endpoints are not available yet.
+- Read live prediction and alert feeds from the API, with fallback demo data only when no feed rows
+  are available.
 
 ## Current Sequence Summary
 
@@ -187,9 +222,13 @@ manual Kaggle download
   -> artifacts/model/latest/*
   -> uv run fraud-api
   -> uv run fraud-replay
-  -> Kafka transaction-events
+  -> Kafka transaction-events and fraud-labels
   -> uv run fraud-consumer
-  -> Kafka fraud-decisions
+  -> Kafka fraud-decisions, Postgres predictions, optional dead-letter-events
+  -> uv run fraud-monitor
+  -> Postgres alerts and Kafka model-alerts
+  -> uv run fraud-monitor-report
+  -> reports/generated/monitoring_report.json
   -> cd dashboard && npm run dev -- --host 127.0.0.1
   -> browser dashboard at http://127.0.0.1:5173/
 ```

@@ -1,4 +1,4 @@
-.PHONY: install test lint format train-smoke api compose-up compose-down compose-reset dashboard
+.PHONY: install test lint format train-smoke calibrate conformal explain monitor-report api compose-up compose-down compose-reset dashboard
 
 install:
 	uv sync --extra dev
@@ -14,6 +14,18 @@ format:
 
 train-smoke:
 	uv run fraud-train --synthetic --output-dir artifacts/model/latest
+
+calibrate:
+	uv run fraud-calibrate --processed-dir data/processed --model-dir artifacts/model/latest --output-dir artifacts/calibration/latest
+
+conformal:
+	uv run fraud-conformal --processed-dir data/processed --model-dir artifacts/model/latest --output-dir artifacts/conformal/latest
+
+explain:
+	uv run fraud-explain --processed-dir data/processed --model-dir artifacts/model/latest --output-dir artifacts/explain/latest
+
+monitor-report:
+	uv run fraud-monitor-report --reference-path data/processed/validation.parquet --current-path data/processed/replay.parquet --output-path reports/generated/monitoring_report.json
 
 api:
 	uv run fraud-api

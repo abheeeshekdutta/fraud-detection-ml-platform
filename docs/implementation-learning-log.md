@@ -1241,3 +1241,37 @@ This document records implementation task summaries for learning and review.
 
 - For fast-moving monitoring libraries, a stable project-native report contract can keep operator
   workflows useful while richer third-party report templates evolve.
+
+## Task 34: Operator Command Polish
+
+**What changed**
+
+- Added Makefile shortcuts for calibration, conformal, SHAP explanation, and monitoring report
+  workflows.
+- Refreshed the execution runbook to match implemented persistence, delayed labels, dead letters,
+  monitoring alerts, and dashboard API feeds.
+
+**Problems faced**
+
+- The execution runbook still described Postgres persistence and dashboard API feeds as future work.
+- New artifact workflows were available as console scripts but not exposed through quick local
+  Makefile targets.
+
+**Solutions applied**
+
+- Updated the documented end-to-end sequence to include replay labels, consumer persistence,
+  dead-letter handling, monitoring alerts, and report generation.
+- Added small Makefile aliases that mirror the canonical CLI commands.
+
+**Verification performed**
+
+- `uv run ruff check .`
+- `uv run pytest`
+- `cd dashboard && npm run build`
+- `cd dashboard && npm test -- --run`
+- `docker compose config`
+
+**Reusable learnings**
+
+- Runbooks need to be refreshed after each operational slice; stale "future work" language hides
+  completed capabilities from operators.
