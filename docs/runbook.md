@@ -83,6 +83,15 @@ uv run fraud-thresholds \
   --min-block-precision 0.20
 ```
 
+To use the same calibrator in runtime scoring, set:
+
+```bash
+CALIBRATOR_PATH=artifacts/calibration/lightgbm-isotonic/calibrator.pkl
+```
+
+`fraud-api` reads `CALIBRATOR_PATH` from settings. `fraud-consumer` receives the same value through
+its `--calibrator-path` argument in Compose.
+
 Start the local stack:
 
 ```bash

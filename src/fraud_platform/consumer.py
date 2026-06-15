@@ -50,6 +50,7 @@ def run_consumer(
     group_id: str,
     model_path: str,
     policy_path: str,
+    calibrator_path: str | None = None,
 ) -> None:
     consumer = Consumer(
         {
@@ -59,7 +60,11 @@ def run_consumer(
         }
     )
     producer = Producer({"bootstrap.servers": bootstrap_servers})
-    engine = ScoringEngine.from_paths(model_path, load_policy(policy_path))
+    engine = ScoringEngine.from_paths(
+        model_path,
+        load_policy(policy_path),
+        calibrator_path=calibrator_path,
+    )
     try:
         consume_available_messages(
             consumer=consumer,
@@ -80,6 +85,7 @@ def main() -> None:
     parser.add_argument("--group-id", default="fraud-consumer")
     parser.add_argument("--model-path", default="artifacts/model/latest")
     parser.add_argument("--policy-path", default="configs/decision_policy.yaml")
+    parser.add_argument("--calibrator-path")
     args = parser.parse_args()
     run_consumer(
         args.bootstrap_servers,
@@ -88,6 +94,7 @@ def main() -> None:
         args.group_id,
         args.model_path,
         args.policy_path,
+        args.calibrator_path,
     )
 
 

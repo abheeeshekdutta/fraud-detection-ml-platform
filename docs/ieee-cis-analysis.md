@@ -128,7 +128,7 @@ What it does not prove yet:
 
 - LightGBM is not final until threshold, calibration, latency, and segment behavior are checked.
 - PR-AUC is still modest because fraud is rare and the feature set is still intentionally limited.
-- Calibration has been fit offline, but the calibrator is not yet wired into runtime scoring.
+- Calibration has been fit offline and can be loaded by API and Kafka consumer scoring.
 - Segment behavior, especially for `ProductCD=C`, still needs threshold and false-positive analysis.
 
 ## Calibration
@@ -177,7 +177,6 @@ checks before promotion.
 
 ## Recommended Next Modeling Steps
 
-1. Wire the selected calibrator into the scoring engine and API/consumer runtime.
-2. Replace the simple conformal prediction set with a validation-backed conformal method.
-3. Add per-segment threshold analysis for `ProductCD`, especially `C` versus `W`.
-4. Measure candidate inference latency before promotion.
+1. Replace the simple conformal prediction set with a validation-backed conformal method.
+2. Add per-segment threshold analysis for `ProductCD`, especially `C` versus `W`.
+3. Measure candidate inference latency before promotion.

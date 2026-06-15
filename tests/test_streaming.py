@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pandas as pd
 
-from fraud_platform.consumer import consume_available_messages
+from fraud_platform.consumer import consume_available_messages, run_consumer
 from fraud_platform.contracts import DecisionEvent, TransactionEvent
 from fraud_platform.replay import replay_frame
 from fraud_platform.streaming import deserialize_event, serialize_event
@@ -143,3 +143,63 @@ def test_consume_available_messages_scores_and_publishes_decisions() -> None:
     assert consumer.committed == 1
     assert producer.produced[0][0] == "fraud-decisions"
     assert producer.produced[0][1] == "1"
+
+
+def test_run_consumer_passes_calibrator_path(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class EmptyConsumer(FakeConsumer):
+        def close(self) -> None:
+            captured["closed"] = True
+
+    def fake_consumer(config: dict[str, str]) -> EmptyConsumer:
+        captured["consumer_config"] = config
+        return EmptyConsumer([])
+
+    def fake_producer(config: dict[str, str]) -> FakeProducer:
+        captured["producer_config"] = config
+        return FakeProducer()
+
+    def fake_load_policy(path: str) -> object:
+        captured["policy_path"] = path
+        return object()
+
+    def fake_from_paths(
+        model_path: str,
+        policy: object,
+        calibrator_path: str | None = None,
+    ) -> FakeEngine:
+        captured["model_path"] = model_path
+        captured["policy"] = policy
+        captured["calibrator_path"] = calibrator_path
+        return FakeEngine()
+
+    def fake_consume_available_messages(**kwargs: object) -> int:
+        captured["engine"] = kwargs["engine"]
+        captured["input_topic"] = kwargs["input_topic"]
+        captured["output_topic"] = kwargs["output_topic"]
+        return 0
+
+    monkeypatch.setattr("fraud_platform.consumer.Consumer", fake_consumer)
+    monkeypatch.setattr("fraud_platform.consumer.Producer", fake_producer)
+    monkeypatch.setattr("fraud_platform.consumer.load_policy", fake_load_policy)
+    monkeypatch.setattr("fraud_platform.consumer.ScoringEngine.from_paths", fake_from_paths)
+    monkeypatch.setattr(
+        "fraud_platform.consumer.consume_available_messages",
+        fake_consume_available_messages,
+    )
+
+    run_consumer(
+        bootstrap_servers="localhost:9092",
+        input_topic="transaction-events",
+        output_topic="fraud-decisions",
+        group_id="fraud-consumer",
+        model_path="artifacts/model/latest",
+        policy_path="configs/decision_policy.yaml",
+        calibrator_path="artifacts/calibration/latest/calibrator.pkl",
+    )
+
+    assert captured["calibrator_path"] == "artifacts/calibration/latest/calibrator.pkl"
+    assert captured["input_topic"] == "transaction-events"
+    assert captured["output_topic"] == "fraud-decisions"
+    assert captured["closed"] is True

@@ -12,3 +12,4 @@ class Settings(BaseSettings):
     mlflow_tracking_uri: str = "http://localhost:5001"
     model_bundle_path: str = "artifacts/model/latest"
     decision_policy_path: str = "configs/decision_policy.yaml"
+    calibrator_path: str | None = None

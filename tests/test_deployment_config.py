@@ -42,6 +42,7 @@ def test_compose_stack_defines_expected_services_and_ports() -> None:
     ):
         assert services[service_name]["environment"]["MLFLOW_TRACKING_URI"] == "http://mlflow:5000"
     assert services["fraud-consumer"]["command"][0] == "fraud-consumer"
+    assert "--calibrator-path" in services["fraud-consumer"]["command"]
 
 
 def test_postgres_init_matches_storage_tables() -> None:

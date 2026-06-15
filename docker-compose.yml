@@ -53,6 +53,7 @@ services:
       MLFLOW_TRACKING_URI: http://mlflow:5000
       MODEL_BUNDLE_PATH: artifacts/model/latest
       DECISION_POLICY_PATH: configs/decision_policy.yaml
+      CALIBRATOR_PATH: ${CALIBRATOR_PATH:-}
     command: ["fraud-api"]
     volumes:
       - ./artifacts:/app/artifacts
@@ -72,6 +73,7 @@ services:
       MLFLOW_TRACKING_URI: http://mlflow:5000
       MODEL_BUNDLE_PATH: artifacts/model/latest
       DECISION_POLICY_PATH: configs/decision_policy.yaml
+      CALIBRATOR_PATH: ${CALIBRATOR_PATH:-}
     command:
       - fraud-consumer
       - --bootstrap-servers
@@ -80,6 +82,8 @@ services:
       - artifacts/model/latest
       - --policy-path
       - configs/decision_policy.yaml
+      - --calibrator-path
+      - ${CALIBRATOR_PATH:-}
     volumes:
       - ./artifacts:/app/artifacts
     depends_on:

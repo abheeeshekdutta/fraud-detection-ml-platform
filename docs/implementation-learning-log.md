@@ -941,3 +941,35 @@ This document records implementation task summaries for learning and review.
   Brier score.
 - Runtime scoring should not be wired to a calibrator until the artifact workflow and offline
   threshold reports are traceable.
+
+## Task 25: Runtime Calibration Wiring
+
+**What changed**
+
+- Wired optional calibrator loading into `ScoringEngine`.
+- Added `CALIBRATOR_PATH` settings support for the API.
+- Added `--calibrator-path` support to the Kafka consumer CLI and Compose command.
+- Updated docs to explain how runtime scoring loads the saved calibrator.
+
+**Problems faced**
+
+- The first consumer wiring test hung because `run_consumer()` is intentionally a long-running
+  service loop.
+- API and Kafka consumer startup paths needed to stay optional so local synthetic smoke runs still
+  work without calibration artifacts.
+
+**Solutions applied**
+
+- Added focused scoring/API tests that assert calibrated probability comes from the loaded calibrator.
+- Tested the consumer construction path by monkeypatching the long-running message loop.
+- Kept calibrator loading optional; missing or empty `CALIBRATOR_PATH` preserves raw-probability
+  scoring.
+
+**Verification performed**
+
+- `uv run pytest tests/test_scoring.py tests/test_api.py tests/test_streaming.py tests/test_deployment_config.py -q`
+
+**Reusable learnings**
+
+- Runtime artifact wiring needs tests at both the pure scoring layer and the app startup layer.
+- Long-running service entry points should be tested by isolating construction from the polling loop.

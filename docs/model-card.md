@@ -126,7 +126,8 @@ LightGBM calibration was fit on the calibration split and evaluated on the valid
 | Platt | 0.030220 | 0.007460 |
 
 Isotonic is the better calibration-error candidate in this pass, though raw scores still have a
-slightly better Brier score.
+slightly better Brier score. Runtime scoring can load the selected calibrator through
+`CALIBRATOR_PATH`.
 
 ### Threshold Analysis
 

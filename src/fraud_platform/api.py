@@ -19,6 +19,7 @@ def create_app(scoring_engine: ScoringEngine | None = None) -> FastAPI:
         scoring_engine = ScoringEngine.from_paths(
             model_path=settings.model_bundle_path,
             policy=load_policy(settings.decision_policy_path),
+            calibrator_path=settings.calibrator_path,
         )
     app = FastAPI(title="Fraud Detection API", version="0.1.0")
     app.state.scoring_engine = scoring_engine
