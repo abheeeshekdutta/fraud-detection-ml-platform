@@ -177,5 +177,5 @@ The local platform currently supports the first end-to-end smoke path:
 - Kafka replay and consumer skeleton
 - prediction and alert storage schema
 - monitoring calculations
-- React operations dashboard
+- persisted Kafka consumer decisions with API prediction and alert feeds for the dashboard
 - Docker Compose observability stack

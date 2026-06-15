@@ -973,3 +973,41 @@ This document records implementation task summaries for learning and review.
 
 - Runtime artifact wiring needs tests at both the pure scoring layer and the app startup layer.
 - Long-running service entry points should be tested by isolating construction from the polling loop.
+
+## Task 26: Dashboard API Feed Endpoints And Decision Persistence
+
+**What changed**
+
+- Added `/predictions` and `/alerts` API endpoints backed by the existing repository layer.
+- Persisted Kafka consumer scoring decisions through the existing prediction repository when
+  `DATABASE_URL` is configured.
+- Enabled CORS for the local dashboard origins.
+- Updated README status and runbook troubleshooting notes for the live dashboard feed path.
+
+**Problems faced**
+
+- The React dashboard already called `/predictions` and `/alerts`, but the API did not expose those
+  routes.
+- The consumer emitted `fraud-decisions` to Kafka but did not save those decisions for the dashboard
+  to read.
+- Browser fetches from `localhost:5173` to `localhost:8000` needed explicit CORS handling.
+
+**Solutions applied**
+
+- Added focused API tests for stored prediction/alert responses and local dashboard CORS preflight.
+- Added a streaming test that verifies scored consumer decisions are saved when a repository is
+  configured.
+- Kept `create_app()` injectable for tests while defaulting to SQLAlchemy repositories from
+  `DATABASE_URL` in normal runtime.
+
+**Verification performed**
+
+- `uv run pytest tests/test_api.py -q`
+- `uv run pytest tests/test_streaming.py tests/test_api.py -q`
+
+**Reusable learnings**
+
+- Dashboard fallback states should have matching API smoke endpoints so operators can distinguish
+  empty data from connectivity problems quickly.
+- Event-loop services are easier to extend when optional side effects, such as persistence, are
+  injected into the message-processing helper rather than hidden in the polling loop.

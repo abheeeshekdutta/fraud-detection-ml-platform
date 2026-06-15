@@ -5,9 +5,12 @@ from typing import Any
 
 from confluent_kafka import Consumer, Producer
 
+from fraud_platform.config import Settings
 from fraud_platform.contracts import TransactionEvent
 from fraud_platform.policy import load_policy
+from fraud_platform.repositories import PredictionRepository
 from fraud_platform.scoring import ScoringEngine
+from fraud_platform.storage import create_session_factory
 from fraud_platform.streaming import deserialize_event, serialize_event
 
 
@@ -17,6 +20,7 @@ def consume_available_messages(
     engine,
     input_topic: str,
     output_topic: str,
+    prediction_repository: PredictionRepository | None = None,
     max_messages: int | None = None,
 ) -> int:
     consumer.subscribe([input_topic])
@@ -31,6 +35,8 @@ def consume_available_messages(
             continue
         event = deserialize_event(message.value(), TransactionEvent)
         decision = engine.score(event)
+        if prediction_repository is not None:
+            prediction_repository.save(decision)
         producer.produce(
             output_topic,
             key=str(_transaction_id(decision)),
@@ -51,6 +57,7 @@ def run_consumer(
     model_path: str,
     policy_path: str,
     calibrator_path: str | None = None,
+    database_url: str | None = None,
 ) -> None:
     consumer = Consumer(
         {
@@ -65,6 +72,9 @@ def run_consumer(
         load_policy(policy_path),
         calibrator_path=calibrator_path,
     )
+    prediction_repository = (
+        PredictionRepository(create_session_factory(database_url)) if database_url else None
+    )
     try:
         consume_available_messages(
             consumer=consumer,
@@ -72,20 +82,23 @@ def run_consumer(
             engine=engine,
             input_topic=input_topic,
             output_topic=output_topic,
+            prediction_repository=prediction_repository,
         )
     finally:
         consumer.close()
 
 
 def main() -> None:
+    settings = Settings()
     parser = argparse.ArgumentParser(description="Score transaction events from Kafka.")
-    parser.add_argument("--bootstrap-servers", default="localhost:9092")
+    parser.add_argument("--bootstrap-servers", default=settings.kafka_bootstrap_servers)
     parser.add_argument("--input-topic", default="transaction-events")
     parser.add_argument("--output-topic", default="fraud-decisions")
     parser.add_argument("--group-id", default="fraud-consumer")
-    parser.add_argument("--model-path", default="artifacts/model/latest")
-    parser.add_argument("--policy-path", default="configs/decision_policy.yaml")
-    parser.add_argument("--calibrator-path")
+    parser.add_argument("--model-path", default=settings.model_bundle_path)
+    parser.add_argument("--policy-path", default=settings.decision_policy_path)
+    parser.add_argument("--calibrator-path", default=settings.calibrator_path)
+    parser.add_argument("--database-url", default=settings.database_url)
     args = parser.parse_args()
     run_consumer(
         args.bootstrap_servers,
@@ -95,6 +108,7 @@ def main() -> None:
         args.model_path,
         args.policy_path,
         args.calibrator_path,
+        args.database_url,
     )
 
 

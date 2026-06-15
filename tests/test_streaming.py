@@ -117,6 +117,14 @@ class FakeEngine:
         )
 
 
+class FakePredictionRepository:
+    def __init__(self) -> None:
+        self.saved: list[DecisionEvent] = []
+
+    def save(self, decision: DecisionEvent) -> None:
+        self.saved.append(decision)
+
+
 def test_consume_available_messages_scores_and_publishes_decisions() -> None:
     event = TransactionEvent(
         event_id="evt-1",
@@ -143,6 +151,34 @@ def test_consume_available_messages_scores_and_publishes_decisions() -> None:
     assert consumer.committed == 1
     assert producer.produced[0][0] == "fraud-decisions"
     assert producer.produced[0][1] == "1"
+
+
+def test_consume_available_messages_persists_decisions_when_repository_is_configured() -> None:
+    event = TransactionEvent(
+        event_id="evt-1",
+        transaction_id=1,
+        event_time=datetime(2026, 6, 10, 12, tzinfo=UTC),
+        amount=20.0,
+        product_cd="W",
+        schema_version="v1",
+    )
+    consumer = FakeConsumer([FakeMessage(serialize_event(event))])
+    producer = FakeProducer()
+    repository = FakePredictionRepository()
+
+    processed = consume_available_messages(
+        consumer=consumer,
+        producer=producer,
+        engine=FakeEngine(),
+        input_topic="transaction-events",
+        output_topic="fraud-decisions",
+        prediction_repository=repository,
+        max_messages=1,
+    )
+
+    assert processed == 1
+    assert repository.saved[0].event_id == "evt-1"
+    assert repository.saved[0].decision == "approve"
 
 
 def test_run_consumer_passes_calibrator_path(monkeypatch) -> None:

@@ -144,8 +144,13 @@ docker compose up --build postgres fraud-api
 
 ### Dashboard Shows Fallback Data
 
-Fallback data means the dashboard is reachable but the API prediction and alert endpoints are not
-available yet. This is expected until the dashboard-specific API endpoints are wired to Postgres.
+Fallback data means the dashboard is reachable but the API has no stored predictions to return, or
+the browser cannot reach the API. Confirm the API is running and returning dashboard feed data:
+
+```bash
+curl http://localhost:8000/predictions
+curl http://localhost:8000/alerts
+```
 
 ### Prometheus Has No Fraud API Data
 
