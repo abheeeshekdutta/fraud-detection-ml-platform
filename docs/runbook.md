@@ -111,6 +111,19 @@ CONFORMAL_PATH=artifacts/conformal/lightgbm-alpha10/conformal.pkl
 `fraud-api` reads `CONFORMAL_PATH` from settings. `fraud-consumer` receives the same value through
 its `--conformal-path` argument in Compose.
 
+To generate a global SHAP explanation summary for a saved model bundle:
+
+```bash
+uv run fraud-explain \
+  --processed-dir data/processed \
+  --model-dir artifacts/model/candidates/lightgbm-features \
+  --output-dir artifacts/explain/lightgbm-global \
+  --max-background-rows 100 \
+  --max-explain-rows 100
+```
+
+The workflow writes `global_shap_summary.json` with ranked mean absolute SHAP values.
+
 The monitoring worker reads recent persisted decisions and writes review-rate shift alerts to
 Postgres and `model-alerts`. Configure its first local guardrail with:
 

@@ -1178,3 +1178,34 @@ This document records implementation task summaries for learning and review.
 
 - Artifact workflows are easier to operate when calibration and uncertainty follow the same pattern:
   fit on calibration data, summarize validation behavior, then load optionally at runtime.
+
+## Task 32: Global SHAP Explanation Artifact
+
+**What changed**
+
+- Added `fit_explanation_artifact()` and the `fraud-explain` CLI.
+- Generated global SHAP feature-importance summaries for saved model bundles.
+- Updated runbook, model card, and modeling docs to distinguish global SHAP artifacts from runtime
+  deterministic reason codes.
+
+**Problems faced**
+
+- SHAP's permutation tabular masker attempted numeric closeness checks on string categorical columns.
+- Runtime reason codes should not switch to SHAP output before stability and wording review.
+
+**Solutions applied**
+
+- Used SHAP KernelExplainer with a prediction wrapper that preserves DataFrame column names for the
+  model pipeline.
+- Kept the output compact as `global_shap_summary.json` with ranked mean absolute SHAP values.
+- Left runtime reason codes deterministic while providing the global explanation artifact workflow.
+
+**Verification performed**
+
+- `uv run pytest tests/test_explain.py -q`
+- `uv run ruff check src/fraud_platform/explain.py tests/test_explain.py pyproject.toml`
+
+**Reusable learnings**
+
+- Mixed categorical/numeric model pipelines need a SHAP wrapper that preserves the serving feature
+  schema; generic tabular maskers can assume numeric arrays.

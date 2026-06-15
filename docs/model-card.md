@@ -57,7 +57,9 @@ Uncertainty metrics:
 
 ## Explainability
 
-Use SHAP to generate global explanations and per-transaction reason codes.
+Use `fraud-explain` to generate global SHAP feature-importance artifacts for a saved model bundle.
+Runtime reason codes currently remain deterministic analyst-facing heuristics until local SHAP
+reason-code stability is validated.
 
 Reason codes should be reviewed for stability and clarity before being shown in the dashboard.
 

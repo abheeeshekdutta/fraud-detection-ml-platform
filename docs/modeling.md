@@ -118,7 +118,9 @@ Use SHAP to generate:
 - per-transaction reason codes
 - analyst-facing risk explanations
 
-Reason codes should be short, stable, and safe for an operations dashboard. They should not expose raw SHAP internals directly.
+The project currently includes a `fraud-explain` global SHAP artifact workflow. Runtime reason codes
+should be short, stable, and safe for an operations dashboard. They should not expose raw SHAP
+internals directly.
 
 ## Model Selection
 
@@ -147,7 +149,7 @@ The following modeling work is still important before treating any model as prod
 - deeper conformal uncertainty validation on held-out segments
 - segment analysis across product, device, email-domain, and missingness cohorts
 - inference latency measurement for the candidate model bundle
-- SHAP stability checks before exposing reason codes in the dashboard
+- SHAP stability checks before replacing deterministic runtime reason codes
 
 ## Artifacts
 
