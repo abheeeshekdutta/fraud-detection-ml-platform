@@ -6,11 +6,13 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pandas as pd
+from confluent_kafka import Producer
 
 from fraud_platform.config import Settings
 from fraud_platform.contracts import AlertEvent
 from fraud_platform.repositories import AlertRepository, PredictionRepository
 from fraud_platform.storage import create_session_factory
+from fraud_platform.streaming import serialize_event
 
 
 def missingness_rate(frame: pd.DataFrame) -> dict[str, float]:
@@ -55,6 +57,8 @@ def run_monitoring_check(
     reference_review_rate: float,
     threshold_multiplier: float,
     limit: int,
+    producer=None,
+    alert_topic: str | None = None,
 ) -> AlertEvent | None:
     predictions = prediction_repository.latest(limit=limit)
     if not predictions:
@@ -74,6 +78,10 @@ def run_monitoring_check(
     )
     if alert is not None:
         alert_repository.save(alert)
+        if producer is not None and alert_topic is not None:
+            producer.produce(alert_topic, key=alert.alert_id, value=serialize_event(alert))
+            producer.poll(0)
+            producer.flush()
     return alert
 
 
@@ -83,12 +91,19 @@ def run_monitoring_loop(
     threshold_multiplier: float,
     limit: int,
     interval_seconds: float,
+    bootstrap_servers: str | None = None,
+    alert_topic: str | None = None,
     once: bool = False,
     sleep=time.sleep,
 ) -> None:
     session_factory = create_session_factory(database_url)
     prediction_repository = PredictionRepository(session_factory)
     alert_repository = AlertRepository(session_factory)
+    producer = (
+        Producer({"bootstrap.servers": bootstrap_servers})
+        if bootstrap_servers is not None and alert_topic is not None
+        else None
+    )
 
     while True:
         run_monitoring_check(
@@ -97,6 +112,8 @@ def run_monitoring_loop(
             reference_review_rate=reference_review_rate,
             threshold_multiplier=threshold_multiplier,
             limit=limit,
+            producer=producer,
+            alert_topic=alert_topic,
         )
         if once:
             return
@@ -118,6 +135,8 @@ def main() -> None:
         default=settings.monitoring_review_rate_multiplier,
     )
     parser.add_argument("--limit", type=int, default=settings.monitoring_prediction_limit)
+    parser.add_argument("--bootstrap-servers", default=settings.kafka_bootstrap_servers)
+    parser.add_argument("--alert-topic", default=settings.model_alerts_topic)
     parser.add_argument(
         "--interval-seconds",
         type=float,
@@ -131,5 +150,7 @@ def main() -> None:
         threshold_multiplier=args.threshold_multiplier,
         limit=args.limit,
         interval_seconds=args.interval_seconds,
+        bootstrap_servers=args.bootstrap_servers,
+        alert_topic=args.alert_topic,
         once=args.once,
     )

@@ -66,6 +66,7 @@ Prometheus should scrape service metrics. Grafana should visualize operational h
 The current `fraud-monitor` worker reads recent persisted prediction records from Postgres, computes
 the current approve/review/block mix, and saves a `decision_rate_shift` alert when the review rate is
 greater than or equal to `MONITORING_REFERENCE_REVIEW_RATE * MONITORING_REVIEW_RATE_MULTIPLIER`.
+When Kafka settings are configured, the same alert is also published to `model-alerts`.
 
 It runs continuously in Docker Compose and can be run once for local checks:
 

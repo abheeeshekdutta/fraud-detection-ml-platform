@@ -49,6 +49,9 @@ def test_compose_stack_defines_expected_services_and_ports() -> None:
     assert "--calibrator-path" in services["fraud-consumer"]["command"]
     assert "--label-topic" in services["transaction-producer"]["command"]
     assert "fraud-labels" in services["transaction-producer"]["command"]
+    assert services["monitoring-worker"]["command"][0] == "fraud-monitor"
+    assert "--alert-topic" in services["monitoring-worker"]["command"]
+    assert "model-alerts" in services["monitoring-worker"]["command"]
 
 
 def test_postgres_init_matches_storage_tables() -> None:

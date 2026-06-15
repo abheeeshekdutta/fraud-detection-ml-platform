@@ -93,7 +93,7 @@ CALIBRATOR_PATH=artifacts/calibration/lightgbm-isotonic/calibrator.pkl
 its `--calibrator-path` argument in Compose.
 
 The monitoring worker reads recent persisted decisions and writes review-rate shift alerts to
-Postgres. Configure its first local guardrail with:
+Postgres and `model-alerts`. Configure its first local guardrail with:
 
 ```bash
 MONITORING_REFERENCE_REVIEW_RATE=0.10

@@ -1083,3 +1083,35 @@ This document records implementation task summaries for learning and review.
   operator docs.
 - Environment variables in `.env.example` should be mirrored in typed settings to keep CLI defaults
   and Compose behavior aligned.
+
+## Task 29: Model Alert Kafka Publication
+
+**What changed**
+
+- Added optional Kafka publication for monitoring alerts to `model-alerts`.
+- Added typed `MODEL_ALERTS_TOPIC` settings support.
+- Updated the Compose monitoring-worker command to pass Kafka bootstrap servers and alert topic.
+- Updated monitoring docs and runbook language for dual Postgres/Kafka alert routing.
+
+**Problems faced**
+
+- The monitoring worker persisted alerts for the dashboard, but the declared `model-alerts` topic was
+  still unused.
+- The worker needed to remain testable without a real Kafka broker.
+
+**Solutions applied**
+
+- Added a focused monitoring test with a fake producer and verified serialized `AlertEvent` output.
+- Kept producer creation optional and injected producer/topic into the one-shot helper.
+- Flushed after alert publication so one-shot checks do not exit before the alert is handed to the
+  client library.
+
+**Verification performed**
+
+- `uv run pytest tests/test_monitoring.py tests/test_deployment_config.py -q`
+- `uv run ruff check src/fraud_platform/monitoring.py src/fraud_platform/config.py tests/test_monitoring.py tests/test_deployment_config.py`
+
+**Reusable learnings**
+
+- Kafka side effects should be injectable at the helper boundary so long-running services can be unit
+  tested without broker dependencies.

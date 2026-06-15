@@ -11,6 +11,7 @@ from fraud_platform.monitoring import (
     missingness_rate,
     run_monitoring_check,
 )
+from fraud_platform.streaming import deserialize_event
 
 
 def test_missingness_rate_by_column() -> None:
@@ -77,6 +78,21 @@ class FakeAlertRepository:
         self.saved.append(alert)
 
 
+class FakeProducer:
+    def __init__(self) -> None:
+        self.produced = []
+        self.flush_called = False
+
+    def produce(self, topic: str, key: str | None = None, value: bytes | None = None) -> None:
+        self.produced.append((topic, key, value))
+
+    def poll(self, timeout: float) -> None:
+        assert timeout == 0
+
+    def flush(self) -> None:
+        self.flush_called = True
+
+
 def test_run_monitoring_check_saves_decision_rate_shift_alert() -> None:
     decisions = [
         _decision("evt-1", "review"),
@@ -98,6 +114,32 @@ def test_run_monitoring_check_saves_decision_rate_shift_alert() -> None:
     assert alert.alert_type == "decision_rate_shift"
     assert alert.metadata["current_review_rate"] == 0.5
     assert alert_repository.saved == [alert]
+
+
+def test_run_monitoring_check_publishes_alert_when_producer_is_configured() -> None:
+    decisions = [
+        _decision("evt-1", "review"),
+        _decision("evt-2", "review"),
+        _decision("evt-3", "approve"),
+        _decision("evt-4", "block"),
+    ]
+    producer = FakeProducer()
+
+    alert = run_monitoring_check(
+        prediction_repository=FakePredictionRepository(decisions),
+        alert_repository=FakeAlertRepository(),
+        reference_review_rate=0.10,
+        threshold_multiplier=2.0,
+        limit=100,
+        producer=producer,
+        alert_topic="model-alerts",
+    )
+
+    assert alert is not None
+    assert producer.produced[0][0] == "model-alerts"
+    assert producer.produced[0][1] == alert.alert_id
+    assert deserialize_event(producer.produced[0][2], type(alert)) == alert
+    assert producer.flush_called is True
 
 
 def test_run_monitoring_check_stays_quiet_without_recent_predictions() -> None:

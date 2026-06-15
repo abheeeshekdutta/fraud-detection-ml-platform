@@ -126,7 +126,12 @@ services:
       MONITORING_PREDICTION_LIMIT: ${MONITORING_PREDICTION_LIMIT:-500}
       MONITORING_REFERENCE_REVIEW_RATE: ${MONITORING_REFERENCE_REVIEW_RATE:-0.10}
       MONITORING_REVIEW_RATE_MULTIPLIER: ${MONITORING_REVIEW_RATE_MULTIPLIER:-2.0}
-    command: ["fraud-monitor"]
+    command:
+      - fraud-monitor
+      - --bootstrap-servers
+      - kafka:29092
+      - --alert-topic
+      - model-alerts
     depends_on:
       - kafka
       - postgres
