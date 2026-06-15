@@ -115,6 +115,9 @@ present in the replay data, delayed outcomes to `fraud-labels`. Tune the simulat
 LABEL_DELAY_SECONDS=30
 ```
 
+The fraud consumer publishes malformed or unprocessable transaction messages to
+`dead-letter-events` and commits them so one bad payload does not block the stream.
+
 Docker's Compose reference describes `docker compose up` as the command that builds, creates,
 starts, and attaches to services defined in the Compose file.
 

@@ -160,3 +160,20 @@ class FraudLabelEvent(BaseModel):
     @classmethod
     def parse_labeled_at(cls, value: Any) -> Any:
         return _parse_aware_datetime(value)
+
+
+class DeadLetterEvent(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    event_id: str = Field(min_length=1)
+    failed_at: AwareDatetime
+    source_topic: str = Field(min_length=1)
+    error_type: str = Field(min_length=1)
+    error_message: str = Field(min_length=1)
+    payload: str
+    schema_version: str = Field(min_length=1)
+
+    @field_validator("failed_at", mode="before")
+    @classmethod
+    def parse_failed_at(cls, value: Any) -> Any:
+        return _parse_aware_datetime(value)

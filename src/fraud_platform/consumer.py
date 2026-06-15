@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 from confluent_kafka import Consumer, Producer
 
 from fraud_platform.config import Settings
-from fraud_platform.contracts import TransactionEvent
+from fraud_platform.contracts import DeadLetterEvent, TransactionEvent
 from fraud_platform.policy import load_policy
 from fraud_platform.repositories import PredictionRepository
 from fraud_platform.scoring import ScoringEngine
@@ -21,6 +23,7 @@ def consume_available_messages(
     input_topic: str,
     output_topic: str,
     prediction_repository: PredictionRepository | None = None,
+    dead_letter_topic: str | None = None,
     max_messages: int | None = None,
 ) -> int:
     consumer.subscribe([input_topic])
@@ -33,18 +36,33 @@ def consume_available_messages(
             continue
         if message.error():
             continue
-        event = deserialize_event(message.value(), TransactionEvent)
-        decision = engine.score(event)
-        if prediction_repository is not None:
-            prediction_repository.save(decision)
-        producer.produce(
-            output_topic,
-            key=str(_transaction_id(decision)),
-            value=serialize_event(decision),
-        )
-        producer.poll(0)
-        consumer.commit(message)
-        processed += 1
+        try:
+            event = deserialize_event(message.value(), TransactionEvent)
+            decision = engine.score(event)
+            if prediction_repository is not None:
+                prediction_repository.save(decision)
+            producer.produce(
+                output_topic,
+                key=str(_transaction_id(decision)),
+                value=serialize_event(decision),
+            )
+            producer.poll(0)
+            processed += 1
+        except Exception as exc:
+            if dead_letter_topic is not None:
+                dead_letter = _dead_letter_event(
+                    payload=message.value(),
+                    source_topic=input_topic,
+                    error=exc,
+                )
+                producer.produce(
+                    dead_letter_topic,
+                    key=dead_letter.event_id,
+                    value=serialize_event(dead_letter),
+                )
+                producer.poll(0)
+        finally:
+            consumer.commit(message)
     producer.flush()
     return processed
 
@@ -58,6 +76,7 @@ def run_consumer(
     policy_path: str,
     calibrator_path: str | None = None,
     database_url: str | None = None,
+    dead_letter_topic: str | None = None,
 ) -> None:
     consumer = Consumer(
         {
@@ -83,6 +102,7 @@ def run_consumer(
             input_topic=input_topic,
             output_topic=output_topic,
             prediction_repository=prediction_repository,
+            dead_letter_topic=dead_letter_topic,
         )
     finally:
         consumer.close()
@@ -99,6 +119,7 @@ def main() -> None:
     parser.add_argument("--policy-path", default=settings.decision_policy_path)
     parser.add_argument("--calibrator-path", default=settings.calibrator_path)
     parser.add_argument("--database-url", default=settings.database_url)
+    parser.add_argument("--dead-letter-topic", default=settings.dead_letter_events_topic)
     args = parser.parse_args()
     run_consumer(
         args.bootstrap_servers,
@@ -109,6 +130,7 @@ def main() -> None:
         args.policy_path,
         args.calibrator_path,
         args.database_url,
+        args.dead_letter_topic,
     )
 
 
@@ -116,6 +138,18 @@ def _transaction_id(decision: Any) -> int:
     if isinstance(decision, dict):
         return int(decision["transaction_id"])
     return int(decision.transaction_id)
+
+
+def _dead_letter_event(payload: bytes, source_topic: str, error: Exception) -> DeadLetterEvent:
+    return DeadLetterEvent(
+        event_id=str(uuid4()),
+        failed_at=datetime.now(UTC),
+        source_topic=source_topic,
+        error_type=type(error).__name__,
+        error_message=str(error)[:500] or type(error).__name__,
+        payload=payload.decode("utf-8", errors="replace"),
+        schema_version="v1",
+    )
 
 
 if __name__ == "__main__":

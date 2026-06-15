@@ -5,7 +5,12 @@ from datetime import UTC, datetime
 import pandas as pd
 
 from fraud_platform.consumer import consume_available_messages, run_consumer
-from fraud_platform.contracts import DecisionEvent, FraudLabelEvent, TransactionEvent
+from fraud_platform.contracts import (
+    DeadLetterEvent,
+    DecisionEvent,
+    FraudLabelEvent,
+    TransactionEvent,
+)
 from fraud_platform.replay import replay_frame
 from fraud_platform.streaming import deserialize_event, serialize_event
 
@@ -38,6 +43,23 @@ def test_serialize_deserialize_fraud_label_event() -> None:
 
     payload = serialize_event(event)
     restored = deserialize_event(payload, FraudLabelEvent)
+
+    assert restored == event
+
+
+def test_serialize_deserialize_dead_letter_event() -> None:
+    event = DeadLetterEvent(
+        event_id="dead-letter-1",
+        failed_at=datetime(2026, 6, 10, 12, tzinfo=UTC),
+        source_topic="transaction-events",
+        error_type="ValidationError",
+        error_message="invalid transaction event",
+        payload="not-json",
+        schema_version="v1",
+    )
+
+    payload = serialize_event(event)
+    restored = deserialize_event(payload, DeadLetterEvent)
 
     assert restored == event
 
@@ -228,6 +250,29 @@ def test_consume_available_messages_persists_decisions_when_repository_is_config
     assert processed == 1
     assert repository.saved[0].event_id == "evt-1"
     assert repository.saved[0].decision == "approve"
+
+
+def test_consume_available_messages_sends_invalid_payload_to_dead_letter_topic() -> None:
+    consumer = FakeConsumer([FakeMessage(b"not-json")])
+    producer = FakeProducer()
+
+    processed = consume_available_messages(
+        consumer=consumer,
+        producer=producer,
+        engine=FakeEngine(),
+        input_topic="transaction-events",
+        output_topic="fraud-decisions",
+        dead_letter_topic="dead-letter-events",
+        max_messages=1,
+    )
+
+    assert processed == 0
+    assert consumer.committed == 1
+    assert producer.produced[0][0] == "dead-letter-events"
+    dead_letter = deserialize_event(producer.produced[0][2], DeadLetterEvent)
+    assert dead_letter.source_topic == "transaction-events"
+    assert dead_letter.payload == "not-json"
+    assert dead_letter.error_type
 
 
 def test_run_consumer_passes_calibrator_path(monkeypatch) -> None:

@@ -1115,3 +1115,36 @@ This document records implementation task summaries for learning and review.
 
 - Kafka side effects should be injectable at the helper boundary so long-running services can be unit
   tested without broker dependencies.
+
+## Task 30: Consumer Dead-Letter Routing
+
+**What changed**
+
+- Added a strict `DeadLetterEvent` contract.
+- Updated the fraud consumer to publish malformed or unprocessable messages to `dead-letter-events`.
+- Wired the Compose consumer command with `--dead-letter-topic dead-letter-events`.
+- Updated README, data contracts, and runbook notes for dead-letter handling.
+
+**Problems faced**
+
+- The project declared a dead-letter topic, but consumer deserialization failures would crash or be
+  skipped without an inspectable payload path.
+- The consumer needed to commit failed messages after routing so a single bad payload would not stall
+  local replay.
+
+**Solutions applied**
+
+- Added focused streaming tests for dead-letter serialization and invalid-payload routing.
+- Wrapped message processing in a narrow `try` block and emitted `DeadLetterEvent` only when a topic
+  is configured.
+- Preserved existing success behavior and optional prediction persistence.
+
+**Verification performed**
+
+- `uv run pytest tests/test_streaming.py tests/test_contracts.py tests/test_deployment_config.py -q`
+- `uv run ruff check src/fraud_platform/contracts.py src/fraud_platform/config.py src/fraud_platform/consumer.py tests/test_streaming.py tests/test_deployment_config.py`
+
+**Reusable learnings**
+
+- Stream consumers should make failure events explicit and serializable; skipped or crashing payloads
+  are much harder to debug during local demos.

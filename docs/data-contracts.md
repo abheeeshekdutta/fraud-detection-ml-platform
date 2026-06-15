@@ -98,3 +98,16 @@ The replay label event includes:
 - `is_fraud`
 - `label_source`
 - `schema_version`
+
+## Dead-Letter Events
+
+Unprocessable Kafka messages are published to `dead-letter-events` so operators can inspect bad
+payloads without blocking the consumer. The event includes:
+
+- `event_id`
+- `failed_at`
+- `source_topic`
+- `error_type`
+- `error_message`
+- `payload`
+- `schema_version`

@@ -84,6 +84,8 @@ services:
       - configs/decision_policy.yaml
       - --calibrator-path
       - ${CALIBRATOR_PATH:-}
+      - --dead-letter-topic
+      - dead-letter-events
     volumes:
       - ./artifacts:/app/artifacts
     depends_on:

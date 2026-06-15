@@ -174,7 +174,7 @@ The local platform currently supports the first end-to-end smoke path:
 - feature pipeline foundation
 - model artifact packaging
 - scoring API
-- Kafka replay, delayed label publishing, and scoring consumer
+- Kafka replay, delayed label publishing, scoring consumer, and dead-letter handling
 - prediction and alert storage schema
 - monitoring worker that persists review-rate shift alerts
 - persisted Kafka consumer decisions with API prediction and alert feeds for the dashboard
