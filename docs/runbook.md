@@ -92,6 +92,25 @@ CALIBRATOR_PATH=artifacts/calibration/lightgbm-isotonic/calibrator.pkl
 `fraud-api` reads `CALIBRATOR_PATH` from settings. `fraud-consumer` receives the same value through
 its `--calibrator-path` argument in Compose.
 
+To fit a split-conformal uncertainty artifact on the dedicated calibration split:
+
+```bash
+uv run fraud-conformal \
+  --processed-dir data/processed \
+  --model-dir artifacts/model/candidates/lightgbm-features \
+  --output-dir artifacts/conformal/lightgbm-alpha10 \
+  --alpha 0.10
+```
+
+To use the same conformal artifact in runtime scoring, set:
+
+```bash
+CONFORMAL_PATH=artifacts/conformal/lightgbm-alpha10/conformal.pkl
+```
+
+`fraud-api` reads `CONFORMAL_PATH` from settings. `fraud-consumer` receives the same value through
+its `--conformal-path` argument in Compose.
+
 The monitoring worker reads recent persisted decisions and writes review-rate shift alerts to
 Postgres and `model-alerts`. Configure its first local guardrail with:
 

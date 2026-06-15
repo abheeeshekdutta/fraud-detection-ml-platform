@@ -54,6 +54,7 @@ services:
       MODEL_BUNDLE_PATH: artifacts/model/latest
       DECISION_POLICY_PATH: configs/decision_policy.yaml
       CALIBRATOR_PATH: ${CALIBRATOR_PATH:-}
+      CONFORMAL_PATH: ${CONFORMAL_PATH:-}
     command: ["fraud-api"]
     volumes:
       - ./artifacts:/app/artifacts
@@ -74,6 +75,7 @@ services:
       MODEL_BUNDLE_PATH: artifacts/model/latest
       DECISION_POLICY_PATH: configs/decision_policy.yaml
       CALIBRATOR_PATH: ${CALIBRATOR_PATH:-}
+      CONFORMAL_PATH: ${CONFORMAL_PATH:-}
     command:
       - fraud-consumer
       - --bootstrap-servers
@@ -84,6 +86,8 @@ services:
       - configs/decision_policy.yaml
       - --calibrator-path
       - ${CALIBRATOR_PATH:-}
+      - --conformal-path
+      - ${CONFORMAL_PATH:-}
       - --dead-letter-topic
       - dead-letter-events
     volumes:

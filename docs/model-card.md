@@ -92,6 +92,11 @@ Every packaged model bundle includes:
 
 The initial synthetic model is a smoke-test artifact, not the final IEEE-CIS production candidate.
 
+Runtime scoring can optionally load:
+
+- `CALIBRATOR_PATH` for calibrated probabilities
+- `CONFORMAL_PATH` for split-conformal prediction sets
+
 ## Current IEEE-CIS Baseline And Candidates
 
 The first real-data artifact is:

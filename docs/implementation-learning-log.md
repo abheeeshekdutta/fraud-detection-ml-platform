@@ -1148,3 +1148,33 @@ This document records implementation task summaries for learning and review.
 
 - Stream consumers should make failure events explicit and serializable; skipped or crashing payloads
   are much harder to debug during local demos.
+
+## Task 31: Conformal Artifact Workflow And Runtime Wiring
+
+**What changed**
+
+- Added save/load helpers for `SplitConformalClassifier`.
+- Added `fit_conformal_artifact()` and the `fraud-conformal` CLI.
+- Wired optional `CONFORMAL_PATH` settings into API and Kafka consumer scoring.
+- Updated Compose, README, runbook, modeling docs, and model card notes.
+
+**Problems faced**
+
+- Conformal utilities existed, but runtime scoring still used threshold-derived prediction sets.
+- The project needed a persisted conformal artifact workflow parallel to probability calibration.
+
+**Solutions applied**
+
+- Added failing tests for conformal artifact round-tripping and scoring-engine use.
+- Fit conformal artifacts on the calibration split and summarize validation coverage.
+- Kept `CONFORMAL_PATH` optional so synthetic smoke runs still work without extra artifacts.
+
+**Verification performed**
+
+- `uv run pytest tests/test_calibration_conformal.py tests/test_calibration_artifact.py tests/test_scoring.py tests/test_streaming.py tests/test_api.py tests/test_deployment_config.py -q`
+- `uv run ruff check src/fraud_platform/conformal.py src/fraud_platform/scoring.py src/fraud_platform/config.py src/fraud_platform/api.py src/fraud_platform/consumer.py tests/test_calibration_conformal.py tests/test_calibration_artifact.py tests/test_scoring.py tests/test_streaming.py tests/test_deployment_config.py`
+
+**Reusable learnings**
+
+- Artifact workflows are easier to operate when calibration and uncertainty follow the same pattern:
+  fit on calibration data, summarize validation behavior, then load optionally at runtime.

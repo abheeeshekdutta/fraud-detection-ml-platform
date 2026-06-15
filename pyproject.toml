@@ -43,6 +43,7 @@ fraud-consumer = "fraud_platform.consumer:main"
 fraud-monitor = "fraud_platform.monitoring:main"
 fraud-thresholds = "fraud_platform.threshold_analysis:main"
 fraud-calibrate = "fraud_platform.calibration:main"
+fraud-conformal = "fraud_platform.conformal:main"
 
 [build-system]
 requires = ["hatchling"]

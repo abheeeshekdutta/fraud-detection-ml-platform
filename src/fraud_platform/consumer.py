@@ -75,6 +75,7 @@ def run_consumer(
     model_path: str,
     policy_path: str,
     calibrator_path: str | None = None,
+    conformal_path: str | None = None,
     database_url: str | None = None,
     dead_letter_topic: str | None = None,
 ) -> None:
@@ -90,6 +91,7 @@ def run_consumer(
         model_path,
         load_policy(policy_path),
         calibrator_path=calibrator_path,
+        conformal_path=conformal_path,
     )
     prediction_repository = (
         PredictionRepository(create_session_factory(database_url)) if database_url else None
@@ -118,6 +120,7 @@ def main() -> None:
     parser.add_argument("--model-path", default=settings.model_bundle_path)
     parser.add_argument("--policy-path", default=settings.decision_policy_path)
     parser.add_argument("--calibrator-path", default=settings.calibrator_path)
+    parser.add_argument("--conformal-path", default=settings.conformal_path)
     parser.add_argument("--database-url", default=settings.database_url)
     parser.add_argument("--dead-letter-topic", default=settings.dead_letter_events_topic)
     args = parser.parse_args()
@@ -129,6 +132,7 @@ def main() -> None:
         args.model_path,
         args.policy_path,
         args.calibrator_path,
+        args.conformal_path,
         args.database_url,
         args.dead_letter_topic,
     )

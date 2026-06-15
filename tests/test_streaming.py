@@ -298,10 +298,12 @@ def test_run_consumer_passes_calibrator_path(monkeypatch) -> None:
         model_path: str,
         policy: object,
         calibrator_path: str | None = None,
+        conformal_path: str | None = None,
     ) -> FakeEngine:
         captured["model_path"] = model_path
         captured["policy"] = policy
         captured["calibrator_path"] = calibrator_path
+        captured["conformal_path"] = conformal_path
         return FakeEngine()
 
     def fake_consume_available_messages(**kwargs: object) -> int:
@@ -327,9 +329,11 @@ def test_run_consumer_passes_calibrator_path(monkeypatch) -> None:
         model_path="artifacts/model/latest",
         policy_path="configs/decision_policy.yaml",
         calibrator_path="artifacts/calibration/latest/calibrator.pkl",
+        conformal_path="artifacts/conformal/latest/conformal.pkl",
     )
 
     assert captured["calibrator_path"] == "artifacts/calibration/latest/calibrator.pkl"
+    assert captured["conformal_path"] == "artifacts/conformal/latest/conformal.pkl"
     assert captured["input_topic"] == "transaction-events"
     assert captured["output_topic"] == "fraud-decisions"
     assert captured["closed"] is True

@@ -45,6 +45,7 @@ def create_app(
             model_path=settings.model_bundle_path,
             policy=load_policy(settings.decision_policy_path),
             calibrator_path=settings.calibrator_path,
+            conformal_path=settings.conformal_path,
         )
     if prediction_repository is None:
         prediction_repository = (

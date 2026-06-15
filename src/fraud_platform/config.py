@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     model_bundle_path: str = "artifacts/model/latest"
     decision_policy_path: str = "configs/decision_policy.yaml"
     calibrator_path: str | None = None
+    conformal_path: str | None = None
     replay_data_path: str = "data/processed/replay.parquet"
     replay_speed_multiplier: float = 60.0
     label_delay_seconds: float = 30.0

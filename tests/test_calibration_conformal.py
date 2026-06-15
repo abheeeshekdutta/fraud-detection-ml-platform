@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from fraud_platform.calibration import ProbabilityCalibrator, load_calibrator, save_calibrator
-from fraud_platform.conformal import SplitConformalClassifier
+from fraud_platform.conformal import SplitConformalClassifier, load_conformal, save_conformal
 
 
 def test_probability_calibrator_maps_scores_to_probabilities() -> None:
@@ -43,3 +43,17 @@ def test_split_conformal_classifier_returns_prediction_sets() -> None:
     assert prediction_sets[0] == ["legit"]
     assert prediction_sets[1] == ["fraud"]
     assert prediction_sets[2] == ["legit", "fraud"]
+
+
+def test_split_conformal_classifier_round_trips_to_disk(tmp_path) -> None:
+    probabilities = np.array([0.05, 0.95, 0.50, 0.60])
+    labels = np.array([0, 1, 0, 1])
+    conformal = SplitConformalClassifier(alpha=0.25).fit(probabilities, labels)
+    target = tmp_path / "conformal.pkl"
+
+    save_conformal(conformal, target)
+    loaded = load_conformal(target)
+
+    assert loaded.alpha == conformal.alpha
+    assert loaded.threshold_ == conformal.threshold_
+    assert loaded.predict_sets(np.array([0.05, 0.95])) == [["legit"], ["fraud"]]

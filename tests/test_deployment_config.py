@@ -47,6 +47,7 @@ def test_compose_stack_defines_expected_services_and_ports() -> None:
     )
     assert services["fraud-consumer"]["command"][0] == "fraud-consumer"
     assert "--calibrator-path" in services["fraud-consumer"]["command"]
+    assert "--conformal-path" in services["fraud-consumer"]["command"]
     assert "--dead-letter-topic" in services["fraud-consumer"]["command"]
     assert "dead-letter-events" in services["fraud-consumer"]["command"]
     assert "--label-topic" in services["transaction-producer"]["command"]

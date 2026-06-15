@@ -8,6 +8,7 @@ import pandas as pd
 
 from fraud_platform.artifacts import ModelBundle, load_model_bundle
 from fraud_platform.calibration import ProbabilityCalibrator, load_calibrator
+from fraud_platform.conformal import SplitConformalClassifier, load_conformal
 from fraud_platform.contracts import DecisionEvent, TransactionEvent
 from fraud_platform.explain import fallback_reason_codes
 from fraud_platform.policy import DecisionPolicy
@@ -19,10 +20,12 @@ class ScoringEngine:
         bundle: ModelBundle,
         policy: DecisionPolicy,
         calibrator: ProbabilityCalibrator | None = None,
+        conformal: SplitConformalClassifier | None = None,
     ) -> None:
         self.bundle = bundle
         self.policy = policy
         self.calibrator = calibrator
+        self.conformal = conformal
 
     @classmethod
     def from_paths(
@@ -30,16 +33,23 @@ class ScoringEngine:
         model_path: str | Path,
         policy: DecisionPolicy,
         calibrator_path: str | Path | None = None,
+        conformal_path: str | Path | None = None,
     ) -> ScoringEngine:
         calibrator = load_calibrator(calibrator_path) if calibrator_path else None
-        return cls(bundle=load_model_bundle(model_path), policy=policy, calibrator=calibrator)
+        conformal = load_conformal(conformal_path) if conformal_path else None
+        return cls(
+            bundle=load_model_bundle(model_path),
+            policy=policy,
+            calibrator=calibrator,
+            conformal=conformal,
+        )
 
     def score(self, event: TransactionEvent) -> DecisionEvent:
         started = perf_counter()
         features = self._features_from_event(event)
         raw_probability = self.bundle.predict_raw_probability(features)[0]
         calibrated_probability = self._calibrated_probability(raw_probability)
-        prediction_set = self._simple_prediction_set(calibrated_probability)
+        prediction_set = self._prediction_set(calibrated_probability)
         policy_decision = self.policy.decide(calibrated_probability, prediction_set)
         latency_ms = (perf_counter() - started) * 1000
         return DecisionEvent(
@@ -80,3 +90,8 @@ class ScoringEngine:
         if probability >= self.policy.config.block_threshold:
             return ["fraud"]
         return ["legit", "fraud"]
+
+    def _prediction_set(self, probability: float) -> list[str]:
+        if self.conformal is None:
+            return self._simple_prediction_set(probability)
+        return self.conformal.predict_sets(pd.Series([probability]).to_numpy())[0]

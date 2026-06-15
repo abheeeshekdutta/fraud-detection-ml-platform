@@ -172,7 +172,7 @@ The local platform currently supports the first end-to-end smoke path:
 
 - strict event contracts
 - feature pipeline foundation
-- model artifact packaging
+- model, calibration, and conformal artifact packaging
 - scoring API
 - Kafka replay, delayed label publishing, scoring consumer, and dead-letter handling
 - prediction and alert storage schema

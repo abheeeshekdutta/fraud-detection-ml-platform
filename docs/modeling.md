@@ -95,7 +95,9 @@ For classification, conformal prediction produces prediction sets such as:
 - `{fraud}`
 - `{legit, fraud}`
 
-The project should use MAPIE or a lightweight split-conformal implementation.
+The project currently provides a lightweight split-conformal implementation and a `fraud-conformal`
+artifact workflow. MAPIE remains an optional future replacement if it produces better validated
+coverage or operational ergonomics.
 
 Decision policy:
 
@@ -142,7 +144,7 @@ The following modeling work is still important before treating any model as prod
 - leakage checks for any aggregate or identity-derived feature
 - class-imbalance handling and threshold optimization for approve/review/block decisions
 - probability calibration on the calibration split
-- conformal uncertainty validation on held-out data
+- deeper conformal uncertainty validation on held-out segments
 - segment analysis across product, device, email-domain, and missingness cohorts
 - inference latency measurement for the candidate model bundle
 - SHAP stability checks before exposing reason codes in the dashboard
