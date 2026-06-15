@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
 import pandas as pd
@@ -17,6 +19,68 @@ from fraud_platform.streaming import serialize_event
 
 def missingness_rate(frame: pd.DataFrame) -> dict[str, float]:
     return {column: float(frame[column].isna().mean()) for column in frame.columns}
+
+
+def write_monitoring_report(
+    reference_frame: pd.DataFrame,
+    current_frame: pd.DataFrame,
+    output_path: str | Path,
+) -> dict[str, object]:
+    report = {
+        "created_at": datetime.now(UTC).isoformat(),
+        "reference_rows": int(len(reference_frame)),
+        "current_rows": int(len(current_frame)),
+        "reference_missingness": missingness_rate(reference_frame),
+        "current_missingness": missingness_rate(current_frame),
+        "numeric_drift": _numeric_drift(reference_frame, current_frame),
+        "categorical_drift": _categorical_drift(reference_frame, current_frame),
+    }
+    target = Path(output_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(report, indent=2))
+    return report
+
+
+def _numeric_drift(
+    reference_frame: pd.DataFrame,
+    current_frame: pd.DataFrame,
+) -> dict[str, dict[str, float]]:
+    drift = {}
+    shared_columns = set(reference_frame.columns).intersection(current_frame.columns)
+    for column in sorted(shared_columns):
+        if not pd.api.types.is_numeric_dtype(reference_frame[column]):
+            continue
+        reference_mean = float(reference_frame[column].mean())
+        current_mean = float(current_frame[column].mean())
+        drift[column] = {
+            "reference_mean": reference_mean,
+            "current_mean": current_mean,
+            "mean_difference": current_mean - reference_mean,
+        }
+    return drift
+
+
+def _categorical_drift(
+    reference_frame: pd.DataFrame,
+    current_frame: pd.DataFrame,
+) -> dict[str, dict[str, object]]:
+    drift = {}
+    shared_columns = set(reference_frame.columns).intersection(current_frame.columns)
+    for column in sorted(shared_columns):
+        if pd.api.types.is_numeric_dtype(reference_frame[column]):
+            continue
+        reference_rates = reference_frame[column].fillna("<missing>").value_counts(normalize=True)
+        current_rates = current_frame[column].fillna("<missing>").value_counts(normalize=True)
+        categories = sorted(set(reference_rates.index).union(current_rates.index))
+        total_variation = 0.5 * sum(
+            abs(float(reference_rates.get(category, 0.0)) - float(current_rates.get(category, 0.0)))
+            for category in categories
+        )
+        drift[column] = {
+            "categories": [str(category) for category in categories],
+            "total_variation_distance": float(total_variation),
+        }
+    return drift
 
 
 def conformal_coverage(frame: pd.DataFrame) -> float:
@@ -153,4 +217,17 @@ def main() -> None:
         bootstrap_servers=args.bootstrap_servers,
         alert_topic=args.alert_topic,
         once=args.once,
+    )
+
+
+def report_main() -> None:
+    parser = argparse.ArgumentParser(description="Write a local model monitoring report.")
+    parser.add_argument("--reference-path", default="data/processed/validation.parquet")
+    parser.add_argument("--current-path", default="data/processed/replay.parquet")
+    parser.add_argument("--output-path", default="reports/generated/monitoring_report.json")
+    args = parser.parse_args()
+    write_monitoring_report(
+        reference_frame=pd.read_parquet(args.reference_path),
+        current_frame=pd.read_parquet(args.current_path),
+        output_path=args.output_path,
     )

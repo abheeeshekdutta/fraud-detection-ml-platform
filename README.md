@@ -177,5 +177,6 @@ The local platform currently supports the first end-to-end smoke path:
 - Kafka replay, delayed label publishing, scoring consumer, and dead-letter handling
 - prediction and alert storage schema
 - monitoring worker that persists review-rate shift alerts
+- local monitoring report generation
 - persisted Kafka consumer decisions with API prediction and alert feeds for the dashboard
 - Docker Compose observability stack

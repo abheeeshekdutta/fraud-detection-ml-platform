@@ -134,6 +134,15 @@ MONITORING_PREDICTION_LIMIT=500
 MONITORING_INTERVAL_SECONDS=60
 ```
 
+To write an offline monitoring report:
+
+```bash
+uv run fraud-monitor-report \
+  --reference-path data/processed/validation.parquet \
+  --current-path data/processed/replay.parquet \
+  --output-path reports/generated/monitoring_report.json
+```
+
 Start the local stack:
 
 ```bash

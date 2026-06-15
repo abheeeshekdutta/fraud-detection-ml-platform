@@ -10,6 +10,7 @@ from fraud_platform.monitoring import (
     decision_rate_shift_alert,
     missingness_rate,
     run_monitoring_check,
+    write_monitoring_report,
 )
 from fraud_platform.streaming import deserialize_event
 
@@ -155,6 +156,35 @@ def test_run_monitoring_check_stays_quiet_without_recent_predictions() -> None:
 
     assert alert is None
     assert alert_repository.saved == []
+
+
+def test_write_monitoring_report_records_missingness_and_drift(tmp_path) -> None:
+    reference = pd.DataFrame(
+        {
+            "amount": [10.0, 20.0, 30.0, 40.0],
+            "product": ["W", "W", "C", "C"],
+        }
+    )
+    current = pd.DataFrame(
+        {
+            "amount": [100.0, None, 130.0, 140.0],
+            "product": ["W", "R", "R", "R"],
+        }
+    )
+    output_path = tmp_path / "monitoring_report.json"
+
+    report = write_monitoring_report(
+        reference_frame=reference,
+        current_frame=current,
+        output_path=output_path,
+    )
+
+    assert output_path.exists()
+    assert report["reference_rows"] == 4
+    assert report["current_rows"] == 4
+    assert report["current_missingness"]["amount"] == 0.25
+    assert report["numeric_drift"]["amount"]["mean_difference"] > 0
+    assert report["categorical_drift"]["product"]["total_variation_distance"] > 0
 
 
 def _decision(event_id: str, decision: str) -> DecisionEvent:

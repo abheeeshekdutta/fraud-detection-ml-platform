@@ -1209,3 +1209,35 @@ This document records implementation task summaries for learning and review.
 
 - Mixed categorical/numeric model pipelines need a SHAP wrapper that preserves the serving feature
   schema; generic tabular maskers can assume numeric arrays.
+
+## Task 33: Local Monitoring Report Artifact
+
+**What changed**
+
+- Added `write_monitoring_report()` for local JSON drift and missingness summaries.
+- Added the `fraud-monitor-report` CLI.
+- Updated README, monitoring docs, and runbook guidance for offline monitoring reports.
+
+**Problems faced**
+
+- Evidently 0.7 uses a newer API than older examples, and the project needed a stable report artifact
+  immediately.
+- Operators still need a simple local report even before full scheduled Evidently templates are
+  finalized.
+
+**Solutions applied**
+
+- Implemented a deterministic JSON report with row counts, missingness, numeric mean shifts, and
+  categorical total variation distance.
+- Kept Evidently documented as an available deeper reporting layer after the monitored production
+  schema stabilizes.
+
+**Verification performed**
+
+- `uv run pytest tests/test_monitoring.py -q`
+- `uv run ruff check src/fraud_platform/monitoring.py tests/test_monitoring.py pyproject.toml`
+
+**Reusable learnings**
+
+- For fast-moving monitoring libraries, a stable project-native report contract can keep operator
+  workflows useful while richer third-party report templates evolve.

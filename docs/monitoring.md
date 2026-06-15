@@ -35,7 +35,9 @@ Track:
 - calibration error
 - conformal coverage
 
-Evidently OSS should be used for offline and scheduled monitoring reports.
+The current local report workflow writes JSON drift and missingness summaries with
+`fraud-monitor-report`. Evidently OSS remains available in the environment for deeper report
+templates once the monitored production schema stabilizes.
 
 ## Service Monitoring
 
@@ -73,6 +75,20 @@ It runs continuously in Docker Compose and can be run once for local checks:
 ```bash
 uv run fraud-monitor --once
 ```
+
+## Implemented Report
+
+Generate a local monitoring report comparing a reference parquet file with a current parquet file:
+
+```bash
+uv run fraud-monitor-report \
+  --reference-path data/processed/validation.parquet \
+  --current-path data/processed/replay.parquet \
+  --output-path reports/generated/monitoring_report.json
+```
+
+The report records row counts, missingness by column, numeric mean shifts, and categorical total
+variation distance.
 
 ## Alert Routing
 
