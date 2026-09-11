@@ -17,7 +17,7 @@ The transaction and identity files join on `TransactionID`. Identity rows are no
 
 Use `TransactionDT` as the event-time proxy.
 
-Planned splits:
+Chronological splits:
 
 - training: earliest transactions
 - calibration: later training-period transactions used for probability and conformal calibration
@@ -28,7 +28,7 @@ No random split should be used for final reported performance.
 
 ## Event Schema
 
-`transaction-events` should contain a production-safe subset of transaction data plus metadata.
+`transaction-events` contains a production-safe subset of transaction data plus metadata.
 
 ```json
 {
@@ -45,11 +45,11 @@ No random split should be used for final reported performance.
 }
 ```
 
-Exact feature names will be finalized during data profiling.
+The shared transformer defines the serving feature names in `src/fraud_platform/features/transformers.py`.
 
 ## Decision Schema
 
-`fraud-decisions` should contain the model output and operational metadata.
+`fraud-decisions` contains the model output and operational metadata.
 
 ```json
 {
@@ -111,3 +111,16 @@ payloads without blocking the consumer. The event includes:
 - `error_message`
 - `payload`
 - `schema_version`
+
+## Runtime persistence and time features
+
+`POST /score` persists its result before responding. An `event_id` is the prediction store's
+primary key; retries with the same ID update the stored decision. `transaction_id` groups business
+transactions but is not a uniqueness key for events.
+
+`TransactionEvent.transaction_dt` is an optional nonnegative finite float containing IEEE-CIS
+seconds from the dataset origin. Replay supplies it so the offline and online time features match.
+External callers should supply it only when they know that same origin. If absent, the raw time
+feature is imputed and derived day/hour features default to zero; wall-clock `event_time` is not
+silently interpreted as dataset-relative time. Enrichment maps cannot overwrite canonical amount,
+product code, or transaction time.

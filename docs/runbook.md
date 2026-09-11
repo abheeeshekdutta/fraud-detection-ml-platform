@@ -1,6 +1,13 @@
 # Fraud Platform Runbook
 
-## Local Startup
+## Synthetic demonstration
+
+For a complete startup without IEEE-CIS downloads, run `uv sync --locked --extra dev` followed
+by `make demo-up`. This prepares both model and replay data in `artifacts/demo/` and applies the
+demo Compose overlay. Use the [walkthrough](demo-script.md) for the matching replay/stop commands.
+The base Compose configuration below expects prepared IEEE-CIS replay data.
+
+## Real-data startup
 
 Run the smoke training command before starting the API if no model artifact exists:
 
@@ -156,8 +163,9 @@ present in the replay data, delayed outcomes to `fraud-labels`. Tune the simulat
 LABEL_DELAY_SECONDS=30
 ```
 
-The fraud consumer publishes malformed or unprocessable transaction messages to
-`dead-letter-events` and commits them so one bad payload does not block the stream.
+The fraud consumer publishes malformed transaction messages to `dead-letter-events` and commits
+them only after confirmed delivery. Scoring, database, and broker failures leave offsets uncommitted;
+resolve the failure and restart the consumer to retry.
 
 Docker's Compose reference describes `docker compose up` as the command that builds, creates,
 starts, and attaches to services defined in the Compose file.
@@ -198,17 +206,17 @@ docker compose up --build kafka fraud-consumer transaction-producer
 
 ### Postgres Tables Are Missing
 
-Reset local volumes and start again:
+Apply the idempotent schema initialization script without deleting prediction history:
 
 ```bash
-docker compose down -v
-docker compose up --build postgres fraud-api
+docker compose exec -T postgres psql -U fraud -d fraud < docker/postgres/init.sql
 ```
 
-### Dashboard Shows Fallback Data
+### Dashboard Is Empty Or Cannot Refresh
 
-Fallback data means the dashboard is reachable but the API has no stored predictions to return, or
-the browser cannot reach the API. Confirm the API is running and returning dashboard feed data:
+An empty feed means there are no persisted decisions. A refresh error means the browser cannot
+load both API feeds; any retained records show their last successful refresh time. The console
+does not generate sample decisions. Check the API and producer/consumer logs:
 
 ```bash
 curl http://localhost:8000/predictions

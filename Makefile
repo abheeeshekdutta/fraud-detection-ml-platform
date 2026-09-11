@@ -41,3 +41,19 @@ compose-reset:
 
 dashboard:
 	cd dashboard && npm install && npm run dev -- --host 0.0.0.0
+
+.PHONY: demo demo-up check dashboard-check integration
+
+demo:
+	uv run fraud-demo
+
+demo-up: demo
+	docker compose -f docker-compose.yml -f docker-compose.demo.yml up --build -d
+
+dashboard-check:
+	cd dashboard && npm ci && npm test && npm run build
+
+check: lint test dashboard-check
+
+integration:
+	RUN_KAFKA_INTEGRATION=1 uv run pytest tests/integration

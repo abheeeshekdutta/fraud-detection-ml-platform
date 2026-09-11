@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC
+
 import uvicorn
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +21,10 @@ SCORING_LATENCY = Histogram("fraud_api_scoring_latency_ms", "Scoring latency in 
 class _InMemoryPredictionRepository:
     def __init__(self, predictions: list[DecisionEvent]) -> None:
         self.predictions = predictions
+
+    def save(self, decision: DecisionEvent) -> None:
+        self.predictions[:] = [p for p in self.predictions if p.event_id != decision.event_id]
+        self.predictions.insert(0, decision)
 
     def latest(self, limit: int = 100) -> list[DecisionEvent]:
         return self.predictions[:limit]
@@ -85,6 +91,7 @@ def create_app(
     def score(event: TransactionEvent) -> DecisionEvent:
         REQUEST_COUNT.labels(endpoint="/score").inc()
         decision = app.state.scoring_engine.score(event)
+        app.state.prediction_repository.save(decision)
         SCORING_LATENCY.observe(decision.latency_ms)
         return decision
 
@@ -115,7 +122,9 @@ def _decision_from_record(record) -> DecisionEvent:
     return DecisionEvent(
         event_id=record.event_id,
         transaction_id=record.transaction_id,
-        scored_at=record.scored_at,
+        scored_at=(
+            record.scored_at if record.scored_at.tzinfo else record.scored_at.replace(tzinfo=UTC)
+        ),
         model_version=record.model_version,
         feature_schema_version=record.feature_schema_version,
         decision_policy_version=record.decision_policy_version,

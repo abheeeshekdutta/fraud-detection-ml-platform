@@ -1,84 +1,27 @@
-# Monitoring Plan
+# Monitoring
 
-## Goals
+## Online review-rate alerts
 
-The monitoring layer should make model behavior visible after deployment.
-
-It should answer:
-
-- Are incoming transactions similar to training data?
-- Are fraud scores shifting unexpectedly?
-- Is the model becoming less calibrated?
-- Are conformal prediction sets still achieving expected coverage?
-- Is serving latency acceptable?
-- Are invalid events or schema failures increasing?
-
-## Monitoring Sources
-
-- Kafka transaction and decision topics
-- Postgres prediction records
-- delayed labels
-- Prometheus service metrics
-- training reference data
-
-## Model Monitoring
-
-Track:
-
-- feature drift
-- missingness drift
-- categorical cardinality drift
-- prediction distribution drift
-- approve/review/block rate changes
-- delayed-label PR-AUC
-- delayed-label recall at fixed precision
-- calibration error
-- conformal coverage
-
-The current local report workflow writes JSON drift and missingness summaries with
-`fraud-monitor-report`. Evidently OSS remains available in the environment for deeper report
-templates once the monitored production schema stabilizes.
-
-## Service Monitoring
-
-Track:
-
-- request count
-- Kafka consumer lag
-- scoring latency
-- error rate
-- invalid event count
-- dead-letter count
-- model load failures
-- prediction throughput
-
-Prometheus should scrape service metrics. Grafana should visualize operational health.
-
-## Alert Examples
-
-- missingness in identity features increases beyond threshold
-- review rate doubles compared with the configured reference period
-- conformal coverage falls below target
-- p95 scoring latency exceeds target
-- dead-letter event rate exceeds threshold
-- fraud score distribution shifts materially
-
-## Implemented Worker
-
-The current `fraud-monitor` worker reads recent persisted prediction records from Postgres, computes
-the current approve/review/block mix, and saves a `decision_rate_shift` alert when the review rate is
-greater than or equal to `MONITORING_REFERENCE_REVIEW_RATE * MONITORING_REVIEW_RATE_MULTIPLIER`.
-When Kafka settings are configured, the same alert is also published to `model-alerts`.
-
-It runs continuously in Docker Compose and can be run once for local checks:
+`fraud-monitor` polls the latest persisted predictions. If the review rate reaches the configured
+reference rate multiplied by the threshold multiplier, it persists a `decision_rate_shift` alert
+and publishes it to `model-alerts`. The dashboard reads the persisted alert feed through FastAPI.
 
 ```bash
 uv run fraud-monitor --once
 ```
 
-## Implemented Report
+| Setting | Default | Meaning |
+| --- | ---: | --- |
+| `MONITORING_INTERVAL_SECONDS` | 60 | Time between checks |
+| `MONITORING_PREDICTION_LIMIT` | 500 | Latest predictions in the comparison window |
+| `MONITORING_REFERENCE_REVIEW_RATE` | 0.10 | Fixed reference review rate |
+| `MONITORING_REVIEW_RATE_MULTIPLIER` | 2.0 | Alert threshold multiplier |
 
-Generate a local monitoring report comparing a reference parquet file with a current parquet file:
+The window is count-based, not time-based. Repeated checks can create repeated alerts for an
+unchanged breach; alerts have no acknowledgement/resolution workflow. A zero reference rate
+currently disables this comparison. These details matter when interpreting the console.
+
+## Offline drift report
 
 ```bash
 uv run fraud-monitor-report \
@@ -87,15 +30,17 @@ uv run fraud-monitor-report \
   --output-path reports/generated/monitoring_report.json
 ```
 
-The report records row counts, missingness by column, numeric mean shifts, and categorical total
-variation distance.
+Reports include row counts, per-column missingness, numeric mean differences, and categorical
+total variation distance. They are descriptive comparisons, not significance tests or automatic
+model promotion decisions.
 
-## Alert Routing
+## Service metrics
 
-Alerts should be written to:
+Prometheus scrapes `fraud-api:8000/metrics`. The checked-in Grafana dashboard displays request rate
+and scoring latency. `fraud_api_scoring_latency_ms` measures the scoring engine, excluding database
+persistence and total HTTP round-trip time. Dashboard p95 is calculated from its latest feed window.
 
-- Postgres alert table
-- dashboard alert panel
-- `model-alerts` Kafka topic
-
-No paid paging service is required.
+Kafka lag, delayed-label performance, and online conformal coverage are not exported by the current
+worker. The replay producer can publish `fraud-labels`, and a coverage helper exists for offline
+analysis, but no background service joins those labels to decisions. Evidently is available as a
+dependency; the committed report generator uses pandas-based summaries.

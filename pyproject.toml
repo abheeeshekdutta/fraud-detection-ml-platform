@@ -1,7 +1,7 @@
 [project]
 name = "fraud-detection-ml-platform"
 version = "0.1.0"
-description = "Local production-shaped fraud detection ML platform"
+description = "Event-driven fraud detection with calibrated ML scoring and operational monitoring"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
@@ -36,6 +36,7 @@ dev = [
 ]
 
 [project.scripts]
+fraud-demo = "fraud_platform.demo:main"
 fraud-api = "fraud_platform.api:main"
 fraud-train = "fraud_platform.training:main"
 fraud-replay = "fraud_platform.replay:main"

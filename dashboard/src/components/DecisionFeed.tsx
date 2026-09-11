@@ -30,7 +30,7 @@ export function DecisionFeed({ decisions, onSelect }: DecisionFeedProps) {
         <tbody>
           {decisions.map((decision) => (
             <tr key={decision.event_id} onClick={() => onSelect(decision)}>
-              <td>{decision.transaction_id}</td>
+              <td><button className="transaction-link" onClick={() => onSelect(decision)}>{decision.transaction_id}</button></td>
               <td>
                 <span className={`status ${decision.decision}`}>{decision.decision}</span>
               </td>

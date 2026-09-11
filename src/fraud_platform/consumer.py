@@ -5,7 +5,8 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from confluent_kafka import Consumer, Producer
+from confluent_kafka import Consumer, KafkaException, Producer
+from pydantic import ValidationError
 
 from fraud_platform.config import Settings
 from fraud_platform.contracts import DeadLetterEvent, TransactionEvent
@@ -13,7 +14,7 @@ from fraud_platform.policy import load_policy
 from fraud_platform.repositories import PredictionRepository
 from fraud_platform.scoring import ScoringEngine
 from fraud_platform.storage import create_session_factory
-from fraud_platform.streaming import deserialize_event, serialize_event
+from fraud_platform.streaming import deserialize_event, publish_confirmed
 
 
 def consume_available_messages(
@@ -35,35 +36,24 @@ def consume_available_messages(
                 break
             continue
         if message.error():
-            continue
+            raise KafkaException(message.error())
         try:
             event = deserialize_event(message.value(), TransactionEvent)
-            decision = engine.score(event)
-            if prediction_repository is not None:
-                prediction_repository.save(decision)
-            producer.produce(
-                output_topic,
-                key=str(_transaction_id(decision)),
-                value=serialize_event(decision),
-            )
-            producer.poll(0)
-            processed += 1
-        except Exception as exc:
-            if dead_letter_topic is not None:
-                dead_letter = _dead_letter_event(
-                    payload=message.value(),
-                    source_topic=input_topic,
-                    error=exc,
-                )
-                producer.produce(
-                    dead_letter_topic,
-                    key=dead_letter.event_id,
-                    value=serialize_event(dead_letter),
-                )
-                producer.poll(0)
-        finally:
-            consumer.commit(message)
-    producer.flush()
+        except (ValidationError, UnicodeDecodeError) as exc:
+            if dead_letter_topic is None:
+                raise
+            dead_letter = _dead_letter_event(message.value(), input_topic, exc)
+            publish_confirmed(producer, dead_letter_topic, dead_letter.event_id, dead_letter)
+            consumer.commit(message=message, asynchronous=False)
+            continue
+
+        # Infrastructure and scoring failures must leave the input offset uncommitted.
+        decision = engine.score(event)
+        if prediction_repository is not None:
+            prediction_repository.save(decision)
+        publish_confirmed(producer, output_topic, str(_transaction_id(decision)), decision)
+        consumer.commit(message=message, asynchronous=False)
+        processed += 1
     return processed
 
 
@@ -84,9 +74,11 @@ def run_consumer(
             "bootstrap.servers": bootstrap_servers,
             "group.id": group_id,
             "auto.offset.reset": "earliest",
+            "enable.auto.commit": False,
+            "enable.auto.offset.store": False,
         }
     )
-    producer = Producer({"bootstrap.servers": bootstrap_servers})
+    producer = Producer({"bootstrap.servers": bootstrap_servers, "enable.idempotence": True})
     engine = ScoringEngine.from_paths(
         model_path,
         load_policy(policy_path),

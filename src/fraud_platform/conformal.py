@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import pickle
 from pathlib import Path
 
@@ -19,9 +20,24 @@ class SplitConformalClassifier:
         self.threshold_: float | None = None
 
     def fit(self, fraud_probabilities: np.ndarray, labels: np.ndarray) -> SplitConformalClassifier:
+        fraud_probabilities = np.asarray(fraud_probabilities, dtype=float)
+        labels = np.asarray(labels)
+        if (
+            fraud_probabilities.ndim != 1
+            or labels.shape != fraud_probabilities.shape
+            or len(labels) == 0
+        ):
+            raise ValueError("probabilities and labels must be nonempty aligned vectors")
+        if (
+            not np.isfinite(fraud_probabilities).all()
+            or ((fraud_probabilities < 0) | (fraud_probabilities > 1)).any()
+            or not np.isin(labels, [0, 1]).all()
+        ):
+            raise ValueError("expected finite probabilities and binary labels")
         true_class_probability = np.where(labels == 1, fraud_probabilities, 1 - fraud_probabilities)
         nonconformity = 1 - true_class_probability
-        self.threshold_ = float(np.quantile(nonconformity, 1 - self.alpha, method="higher"))
+        rank = math.ceil((len(labels) + 1) * (1 - self.alpha))
+        self.threshold_ = 1.0 if rank > len(labels) else float(np.sort(nonconformity)[rank - 1])
         return self
 
     def predict_sets(self, fraud_probabilities: np.ndarray) -> list[list[str]]:

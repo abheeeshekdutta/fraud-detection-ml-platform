@@ -74,9 +74,10 @@ def test_scoring_engine_uses_loaded_calibrator(tmp_path) -> None:
 
     decision = engine.score(event)
 
-    assert decision.calibrated_probability == calibrator.predict(
-        np.array([decision.fraud_probability])
-    )[0]
+    assert (
+        decision.calibrated_probability
+        == calibrator.predict(np.array([decision.fraud_probability]))[0]
+    )
 
 
 def test_scoring_engine_uses_loaded_conformal_artifact(tmp_path) -> None:
@@ -110,6 +111,79 @@ def test_scoring_engine_uses_loaded_conformal_artifact(tmp_path) -> None:
 
     decision = engine.score(event)
 
-    assert decision.conformal_prediction_set == conformal.predict_sets(
-        np.array([decision.calibrated_probability])
-    )[0]
+    assert (
+        decision.conformal_prediction_set
+        == conformal.predict_sets(np.array([decision.calibrated_probability]))[0]
+    )
+
+
+def test_replayed_event_preserves_offline_model_probability(tmp_path) -> None:
+    import pandas as pd
+
+    from fraud_platform.features.ieee import build_transaction_event
+
+    model_dir = tmp_path / "model"
+    train_synthetic_model(model_dir)
+    engine = ScoringEngine.from_paths(
+        model_dir,
+        DecisionPolicy(PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8)),
+    )
+    frame = pd.DataFrame(
+        [
+            {
+                "TransactionID": 42,
+                "TransactionDT": 123456.0,
+                "TransactionAmt": 75.0,
+                "ProductCD": "C",
+                "card1": 1002,
+                "addr1": 200.0,
+                "P_emaildomain": "b.test",
+                "DeviceType": "mobile",
+                "id_31": "safari",
+            }
+        ]
+    )
+    event = build_transaction_event(frame.iloc[0], "2026-06-10T12:00:00Z")
+    assert event.transaction_dt == 123456.0
+    assert np.isclose(
+        engine.score(event).fraud_probability, engine.bundle.predict_raw_probability(frame)[0]
+    )
+
+    # Arbitrary enrichment keys cannot replace the contract's canonical fields.
+    event.card_features["TransactionAmt"] = 999999.0
+    event.identity_features["TransactionDT"] = 0.0
+    assert np.isclose(
+        engine.score(event).fraud_probability, engine.bundle.predict_raw_probability(frame)[0]
+    )
+
+
+def test_conformal_keeps_raw_score_scale_with_probability_calibration(tmp_path) -> None:
+    class Calibrator:
+        def predict(self, values):
+            return np.array([0.5])
+
+    class Conformal:
+        def predict_sets(self, values):
+            self.received = values[0]
+            return [["legit", "fraud"]]
+
+    model_dir = tmp_path / "model"
+    train_synthetic_model(model_dir)
+    engine = ScoringEngine.from_paths(
+        model_dir,
+        DecisionPolicy(PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8)),
+    )
+    engine.calibrator = Calibrator()
+    engine.conformal = Conformal()
+    event = TransactionEvent(
+        event_id="evt",
+        transaction_id=1,
+        event_time=datetime.now(UTC),
+        amount=20.0,
+        product_cd="W",
+        schema_version="v1",
+    )
+    decision = engine.score(event)
+    assert decision.calibrated_probability == 0.5
+    assert engine.conformal.received == decision.fraud_probability
+    assert decision.decision == "review"

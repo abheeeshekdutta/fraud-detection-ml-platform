@@ -1,5 +1,11 @@
 services:
   kafka:
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:29092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
     image: confluentinc/cp-kafka:8.1.0
     ports:
       - "9092:9092"
@@ -19,6 +25,11 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
 
   postgres:
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fraud -d fraud"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     image: postgres:17-alpine
     ports:
       - "5432:5432"
@@ -27,6 +38,7 @@ services:
       POSTGRES_PASSWORD: fraud
       POSTGRES_DB: fraud
     volumes:
+      - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
   mlflow:
@@ -59,9 +71,12 @@ services:
     volumes:
       - ./artifacts:/app/artifacts
     depends_on:
-      - kafka
-      - postgres
-      - mlflow
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
 
   fraud-consumer:
     build:
@@ -93,8 +108,10 @@ services:
     volumes:
       - ./artifacts:/app/artifacts
     depends_on:
-      - kafka
-      - postgres
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
 
   transaction-producer:
     build:
@@ -117,7 +134,8 @@ services:
     volumes:
       - ./data:/app/data
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
 
   monitoring-worker:
     build:
@@ -139,8 +157,10 @@ services:
       - --alert-topic
       - model-alerts
     depends_on:
-      - kafka
-      - postgres
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
 
   prometheus:
     image: prom/prometheus:v3.12.0
@@ -167,3 +187,6 @@ services:
       - "5173:80"
     depends_on:
       - fraud-api
+
+volumes:
+  postgres-data:

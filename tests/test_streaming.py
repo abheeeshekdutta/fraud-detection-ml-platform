@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pandas as pd
+import pytest
 
 from fraud_platform.consumer import consume_available_messages, run_consumer
 from fraud_platform.contracts import (
@@ -69,15 +70,24 @@ class FakeProducer:
         self.produced: list[tuple[str, str | None, bytes]] = []
         self.flush_called = False
 
-    def produce(self, topic: str, key: str | None = None, value: bytes | None = None) -> None:
+    def produce(
+        self,
+        topic: str,
+        key: str | None = None,
+        value: bytes | None = None,
+        on_delivery=None,
+    ) -> None:
         assert value is not None
         self.produced.append((topic, key, value))
+        if on_delivery is not None:
+            on_delivery(None, None)
 
     def poll(self, timeout: float) -> None:
         assert timeout == 0
 
-    def flush(self) -> None:
+    def flush(self, timeout=None) -> int:
         self.flush_called = True
+        return 0
 
 
 def test_replay_frame_publishes_transactions_in_time_order() -> None:
@@ -166,7 +176,8 @@ class FakeConsumer:
             return self.messages.pop(0)
         return None
 
-    def commit(self, message: FakeMessage) -> None:
+    def commit(self, message: FakeMessage, asynchronous: bool = False) -> None:
+        assert asynchronous is False
         self.committed += 1
 
 
@@ -337,3 +348,63 @@ def test_run_consumer_passes_calibrator_path(monkeypatch) -> None:
     assert captured["input_topic"] == "transaction-events"
     assert captured["output_topic"] == "fraud-decisions"
     assert captured["closed"] is True
+
+
+@pytest.mark.parametrize("failure", ["storage", "scoring", "delivery", "timeout", "dead_letter"])
+def test_consumer_does_not_commit_failed_work(failure) -> None:
+    event = TransactionEvent(
+        event_id="retry-me",
+        transaction_id=1,
+        event_time=datetime(2026, 6, 10, 12, tzinfo=UTC),
+        amount=20.0,
+        product_cd="W",
+        schema_version="v1",
+    )
+    payload = b"invalid" if failure == "dead_letter" else serialize_event(event)
+    consumer = FakeConsumer([FakeMessage(payload)])
+
+    class FailingProducer(FakeProducer):
+        def produce(self, topic, key=None, value=None, on_delivery=None):
+            if failure in {"delivery", "dead_letter"}:
+                on_delivery("broker unavailable", None)
+            elif failure != "timeout":
+                super().produce(topic, key, value, on_delivery)
+
+    class Repository(FakePredictionRepository):
+        def save(self, decision):
+            if failure == "storage":
+                raise RuntimeError("database unavailable")
+            super().save(decision)
+
+    class Engine(FakeEngine):
+        def score(self, event):
+            if failure == "scoring":
+                raise RuntimeError("model failure")
+            return super().score(event)
+
+    with pytest.raises((RuntimeError, TimeoutError)):
+        consume_available_messages(
+            consumer,
+            FailingProducer(),
+            Engine(),
+            "input",
+            "output",
+            prediction_repository=Repository(),
+            dead_letter_topic="dead-letter",
+            max_messages=1,
+        )
+    assert consumer.committed == 0
+
+
+def test_invalid_event_without_dead_letter_destination_is_not_committed() -> None:
+    consumer = FakeConsumer([FakeMessage(b"invalid")])
+    with pytest.raises(ValueError):
+        consume_available_messages(
+            consumer,
+            FakeProducer(),
+            FakeEngine(),
+            "input",
+            "output",
+            max_messages=1,
+        )
+    assert consumer.committed == 0

@@ -49,7 +49,10 @@ class ScoringEngine:
         features = self._features_from_event(event)
         raw_probability = self.bundle.predict_raw_probability(features)[0]
         calibrated_probability = self._calibrated_probability(raw_probability)
-        prediction_set = self._prediction_set(calibrated_probability)
+        # Conformal artifacts are fitted on raw model scores, independently of calibration.
+        prediction_set = self._prediction_set(
+            raw_probability if self.conformal is not None else calibrated_probability
+        )
         policy_decision = self.policy.decide(calibrated_probability, prediction_set)
         latency_ms = (perf_counter() - started) * 1000
         return DecisionEvent(
@@ -75,12 +78,13 @@ class ScoringEngine:
 
     def _features_from_event(self, event: TransactionEvent) -> pd.DataFrame:
         payload = {
-            "TransactionAmt": event.amount,
-            "ProductCD": event.product_cd,
             **event.card_features,
             **event.address_features,
             **event.email_domain_features,
             **event.identity_features,
+            "TransactionAmt": event.amount,
+            "TransactionDT": event.transaction_dt,
+            "ProductCD": event.product_cd,
         }
         return pd.DataFrame([payload])
 

@@ -1,101 +1,57 @@
-# Deployment Plan
+# Deployment
 
-## Requirement
+The default deployment is a local Docker Compose stack. It needs no managed cloud services or
+external API accounts. Use a Docker-compatible runtime with Compose and a running daemon.
 
-The project must run locally with no required paid services.
-
-Default deployment target:
-
-- Docker Compose
-
-Recommended macOS container runtime:
-
-- Colima + Docker CLI
-
-Docker Desktop is not required.
-
-## Services
-
-Docker Compose services:
-
-- `kafka`
-- `postgres`
-- `mlflow`
-- `fraud-api`
-- `fraud-consumer`
-- `transaction-producer`
-- `monitoring-worker`
-- `prometheus`
-- `grafana`
-- `dashboard`
-
-## Kafka
-
-Use Apache Kafka in KRaft mode.
-
-Do not use Redpanda in the default stack. Redpanda is convenient and Kafka-compatible, but the project should avoid source-available licensing ambiguity and use Apache Kafka directly.
-
-The local Compose stack uses Confluent's `cp-kafka` image because it is an official Apache Kafka image for Confluent Platform and supports local KRaft mode. Bitnami's public Kafka image availability changed, so it is not used as the default.
-
-## Local Ports
-
-Defaults:
-
-- dashboard: `localhost:5173`
-- fraud API: `localhost:8000`
-- MLflow: `localhost:5001`
-- Grafana: `localhost:3000`
-- Prometheus: `localhost:9090`
-- Kafka broker: `localhost:9092`
-- Postgres: `localhost:5432`
-
-## Configuration
-
-Use environment variables and checked-in example files:
-
-- `.env.example`
-- service-specific config files
-- model decision policy YAML
-- topic configuration YAML
-
-Secrets are not expected for the local project.
-
-Before starting the full stack, create the current smoke model artifact:
+## Synthetic deployment
 
 ```bash
-uv run fraud-train --synthetic --output-dir artifacts/model/latest
+uv sync --locked --extra dev
+make demo-up
 ```
 
-Then start the local services:
+`docker-compose.demo.yml` overlays the base stack to use `artifacts/demo/model` and
+`artifacts/demo/replay.parquet`. It disables optional calibration/conformal paths so real-data
+artifacts cannot accidentally be applied to a demonstration model.
+
+## IEEE-CIS deployment
+
+Prepare chronological splits and a model with the [operator runbook](runbook.md), then run:
 
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
 
-## Health Checks
+The base stack expects `artifacts/model/latest` and `data/processed/replay.parquet`. Optionally
+set `CALIBRATOR_PATH` and `CONFORMAL_PATH` in `.env` or the shell. Paths are relative to `/app`
+in the container and should point into the mounted `artifacts/` directory.
 
-After the stack starts, check:
+## Services and ports
 
-- API: `curl http://localhost:8000/health`
-- API docs: `http://localhost:8000/docs`
-- Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3000`
-- Dashboard: `http://localhost:5173`
+| Service | Host port | Role |
+| --- | ---: | --- |
+| dashboard | 5173 | React console served by nginx |
+| fraud-api | 8000 | Scoring, feeds, OpenAPI, metrics |
+| kafka | 9092 | Host Kafka listener; containers use `kafka:29092` |
+| postgres | 5432 | Predictions and alerts |
+| mlflow | 5001 | Experiment tracking |
+| prometheus | 9090 | Metric collection |
+| grafana | 3000 | Operational dashboards |
 
-If Docker Compose is unavailable on the local machine, the checked-in deployment tests still parse
-the Compose, Prometheus, Grafana, and Postgres configuration files.
+The consumer, producer, and monitoring worker have no exposed HTTP ports. Kafka runs in KRaft
+mode using the checked-in Confluent image. Backend images install from `uv.lock`; the frontend
+uses `npm ci`. Kafka and PostgreSQL health checks gate dependent service startup.
 
-## Cost
+## Configuration and persistence
 
-Required cost: `$0`.
+Compose loads baseline values from `.env.example`. Only fields explicitly interpolated in
+`docker-compose.yml` can be overridden by `.env`; changing an arbitrary variable there does not
+replace a service's explicit `environment` entry. Direct Python CLI commands read `.env` normally.
 
-The project should not require:
+PostgreSQL records persist in the `postgres-data` named volume. Kafka and MLflow use container
+storage and are not durable across replacement. Local model files remain in bind mounts. Do not
+use `docker compose down -v` unless deleting the database volume is intentional.
 
-- cloud compute
-- managed Kafka
-- managed database
-- paid observability tooling
-- paid APIs
-- paid Docker Desktop subscription
-
-Cloud deployment can be added later, but the default setup is local and self-hosted.
+This deployment has development credentials, no API authentication, and no TLS termination. It
+is designed for a trusted machine rather than public ingress. See [architecture](architecture.md)
+for delivery guarantees and [Docker operations](docker-runbook.md) for recovery steps.

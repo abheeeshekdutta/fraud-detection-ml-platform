@@ -1,219 +1,87 @@
-# Docker Runbook
+# Docker operations
 
-This guide runs the local fraud detection platform with Docker Compose.
+## Prepare and start
 
-## Prerequisites
-
-- Python 3.11
-- `uv`
-- Docker Compose through Docker CLI, Colima, or another local container runtime
-
-The stack is designed to run locally with no paid services.
-
-## 1. Create Local Environment File
+Check that `docker info` succeeds. Install Python 3.11 dependencies and start the complete synthetic
+path with:
 
 ```bash
-cp .env.example .env
+uv sync --locked --extra dev
+make demo-up
 ```
 
-Most Docker services read `.env.example` directly, but keeping `.env` lets you override optional
-runtime artifacts:
+For IEEE-CIS, prepare the data and model using the [runbook](runbook.md), then use the base
+`docker compose up --build -d` command. Synthetic demo commands use both Compose files; keep using
+that same pair for subsequent operations so artifact selection stays consistent.
+
+## Inspect
 
 ```bash
-CALIBRATOR_PATH=artifacts/calibration/latest/calibrator.pkl
-CONFORMAL_PATH=artifacts/conformal/latest/conformal.pkl
+docker compose -f docker-compose.yml -f docker-compose.demo.yml ps -a
+docker compose -f docker-compose.yml -f docker-compose.demo.yml logs --tail=100 fraud-consumer transaction-producer
+curl --fail http://localhost:8000/health
+curl --fail http://localhost:8000/model-info
+curl --fail http://localhost:8000/predictions
+curl --fail http://localhost:8000/alerts
+curl --fail http://localhost:9090/-/ready
 ```
 
-Leave these blank for the synthetic smoke path.
+`/health` returns `{"status":"ok"}` after model loading. It does not check database connectivity.
+The console runs at `http://localhost:5173`; interactive API docs run at `http://localhost:8000/docs`.
+MLflow, Grafana, and Prometheus ports are listed in [deployment](deployment.md).
 
-## 2. Install Dependencies
+The replay producer is a finite job. An exit code of zero after processing its input is expected.
+The consumer and monitoring worker remain running. To publish another synthetic batch:
 
 ```bash
-uv sync --extra dev
+docker compose -f docker-compose.yml -f docker-compose.demo.yml run --rm transaction-producer
 ```
 
-This creates the local Python environment used to prepare model artifacts before containers start.
+## Recover
 
-## 3. Create A Model Artifact
+### Model or replay input missing
 
-For the fastest Docker smoke run:
+For the demo, rerun `make demo` and restart the affected service with the demo overlay. For real
+data, regenerate the model and replay partition with `fraud-train`. Synthetic files are isolated
+under `artifacts/demo/`; the base stack does not use them.
+
+### API feeds fail or remain empty
+
+A visible connection error means a feed request failed. An empty feed means no predictions have
+been stored. Inspect API, PostgreSQL, consumer, and producer logs. API scores also populate the
+feed; use the sample request in the [walkthrough](demo-script.md).
+
+### Database schema missing
+
+Apply the idempotent schema script without removing stored data:
 
 ```bash
-uv run fraud-train --synthetic --output-dir artifacts/model/latest
+docker compose exec -T postgres psql -U fraud -d fraud < docker/postgres/init.sql
 ```
 
-This writes:
+### Consumer stops on a processing failure
 
-- `artifacts/model/latest/model.pkl`
-- `artifacts/model/latest/metadata.json`
-
-The API and consumer containers mount `./artifacts` and load `artifacts/model/latest`.
-
-## 4. Optional Real-Data Artifacts
-
-If IEEE-CIS files are available under `data/raw`, prepare splits and train a real-data candidate:
+Scoring, database, and broker failures intentionally leave the source offset uncommitted. Fix the
+underlying dependency or artifact, then restart:
 
 ```bash
-uv run fraud-train --prepare-ieee --raw-dir data/raw --processed-dir data/processed
-uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir artifacts/model/latest --max-train-rows 100000
+docker compose -f docker-compose.yml -f docker-compose.demo.yml restart fraud-consumer
 ```
 
-Optional follow-on artifacts:
+Malformed event contracts are sent to the dead-letter topic, with the offset committed after
+confirmed delivery. Infrastructure failures are not classified as bad input.
+
+### Optional artifact path is wrong
+
+Real-data services fail at startup if `CALIBRATOR_PATH` or `CONFORMAL_PATH` is set to a missing file.
+Clear the path or regenerate the matching artifact. Refit conformal artifacts after the quantile
+correction documented in the [release notes](../CHANGELOG.md).
+
+## Stop
 
 ```bash
-uv run fraud-calibrate --processed-dir data/processed --model-dir artifacts/model/latest --output-dir artifacts/calibration/latest
-uv run fraud-conformal --processed-dir data/processed --model-dir artifacts/model/latest --output-dir artifacts/conformal/latest
-uv run fraud-explain --processed-dir data/processed --model-dir artifacts/model/latest --output-dir artifacts/explain/latest
+docker compose -f docker-compose.yml -f docker-compose.demo.yml down
 ```
 
-To load calibration and conformal artifacts at runtime, set `CALIBRATOR_PATH` and `CONFORMAL_PATH`
-before starting Compose.
-
-## 5. Start Docker Compose
-
-```bash
-docker compose up --build
-```
-
-Run in detached mode if preferred:
-
-```bash
-docker compose up --build -d
-```
-
-## 6. Open Services
-
-- Dashboard: `http://localhost:5173`
-- Fraud API docs: `http://localhost:8000/docs`
-- Fraud API health: `http://localhost:8000/health`
-- Fraud API metrics: `http://localhost:8000/metrics`
-- MLflow: `http://localhost:5001`
-- Grafana: `http://localhost:3000`
-- Prometheus: `http://localhost:9090`
-- Kafka external listener: `localhost:9092`
-- Postgres: `localhost:5432`
-
-## 7. Health Checks
-
-```bash
-curl http://localhost:8000/health
-curl http://localhost:8000/model-info
-curl http://localhost:8000/predictions
-curl http://localhost:8000/alerts
-curl http://localhost:9090/-/ready
-```
-
-Expected API health response:
-
-```json
-{"status":"ok"}
-```
-
-## 8. What Compose Starts
-
-| Service | Purpose |
-| --- | --- |
-| `kafka` | Local Apache Kafka broker in KRaft mode |
-| `postgres` | Prediction and alert storage |
-| `mlflow` | Local model experiment tracking UI |
-| `fraud-api` | FastAPI synchronous scoring and dashboard feed API |
-| `fraud-consumer` | Kafka transaction scoring worker |
-| `transaction-producer` | Replays processed transactions into Kafka |
-| `monitoring-worker` | Detects review-rate shifts and writes/publishes alerts |
-| `prometheus` | Scrapes API metrics |
-| `grafana` | Displays Prometheus dashboards |
-| `dashboard` | Fraud operations console |
-
-## 9. Application Flow
-
-1. Offline training writes a model bundle under `artifacts/model/latest`.
-2. Optional calibration and conformal workflows write runtime artifacts under `artifacts/`.
-3. Docker Compose starts Kafka, Postgres, MLflow, API, workers, monitoring, and dashboard.
-4. `transaction-producer` reads `data/processed/replay.parquet`.
-5. It publishes transaction messages to Kafka topic `transaction-events`.
-6. If replay rows include `isFraud`, it also publishes delayed labels to `fraud-labels`.
-7. `fraud-consumer` reads `transaction-events`.
-8. The consumer loads the model bundle, optional calibrator, optional conformal artifact, and decision policy.
-9. It scores each transaction and applies approve/review/block policy.
-10. It publishes decisions to `fraud-decisions`.
-11. It persists decisions into Postgres `predictions`.
-12. If a message is malformed or unprocessable, it publishes a `DeadLetterEvent` to `dead-letter-events`.
-13. `fraud-api` exposes synchronous `POST /score`, model metadata, Prometheus metrics, and dashboard feed endpoints.
-14. `monitoring-worker` reads recent Postgres predictions and detects review-rate shifts.
-15. Monitoring alerts are saved to Postgres `alerts` and published to `model-alerts`.
-16. Prometheus scrapes API metrics; Grafana visualizes request count and latency.
-17. The React dashboard reads `/predictions` and `/alerts` from the API.
-
-## 10. Stop Or Reset
-
-Stop containers:
-
-```bash
-docker compose down
-```
-
-Stop containers and remove volumes:
-
-```bash
-docker compose down -v
-```
-
-Rebuild from scratch:
-
-```bash
-docker compose down -v
-uv run fraud-train --synthetic --output-dir artifacts/model/latest
-docker compose up --build
-```
-
-## Troubleshooting
-
-### API Cannot Load A Model
-
-Create the model artifact before starting Compose:
-
-```bash
-uv run fraud-train --synthetic --output-dir artifacts/model/latest
-```
-
-Then restart:
-
-```bash
-docker compose up --build fraud-api fraud-consumer
-```
-
-### Dashboard Shows Only Fallback Data
-
-Check API feed endpoints:
-
-```bash
-curl http://localhost:8000/predictions
-curl http://localhost:8000/alerts
-```
-
-If predictions are empty, confirm `transaction-producer`, `fraud-consumer`, and `postgres` are
-running:
-
-```bash
-docker compose ps
-```
-
-### Replay Data Missing
-
-The producer expects:
-
-```text
-data/processed/replay.parquet
-```
-
-Create real-data splits from IEEE-CIS:
-
-```bash
-uv run fraud-train --prepare-ieee --raw-dir data/raw --processed-dir data/processed
-```
-
-### Optional Artifact Path Is Wrong
-
-If `CALIBRATOR_PATH` or `CONFORMAL_PATH` points to a missing file, the API or consumer will fail at
-startup. Clear the variable or regenerate the artifact.
-
+This preserves PostgreSQL's named volume. Adding `-v` deletes stored predictions and alerts.
+Kafka and MLflow do not have durable volumes in the current local configuration.

@@ -1,4 +1,4 @@
-# Modeling Plan
+# Modeling
 
 ## Objective
 
@@ -50,12 +50,6 @@ validation metrics, and optional MLflow logging path as the logistic baseline.
 Use `--tune-hyperparameters` to run a small `TimeSeriesSplit` grid search before fitting the final
 candidate on the full training slice. The current tuning path logs candidate hyperparameters,
 selected parameters, fold metrics, and final validation metrics to MLflow when tracking is enabled.
-
-### Optional Challenger
-
-- XGBoostClassifier
-
-Only add XGBoost if the first benchmark suggests meaningful upside.
 
 ## Metrics
 
@@ -112,11 +106,8 @@ Monitoring should include conformal coverage on delayed labels.
 
 ## Explainability
 
-Use SHAP to generate:
-
-- global feature importance
-- per-transaction reason codes
-- analyst-facing risk explanations
+Use `fraud-explain` to generate offline global SHAP feature importance. Runtime reason codes are
+deterministic heuristics, not per-transaction SHAP attributions.
 
 The project currently includes a `fraud-explain` global SHAP artifact workflow. Runtime reason codes
 should be short, stable, and safe for an operations dashboard. They should not expose raw SHAP

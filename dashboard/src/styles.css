@@ -253,3 +253,9 @@ dd {
     margin-top: 16px;
   }
 }
+
+.connection-status { margin: 0 0 20px; color: #64748b; font-size: 14px; }
+.connection-status.error { color: #b91c1c; }
+.connection-status.live { color: #15803d; }
+
+.transaction-link { background: transparent; border: 0; color: inherit; font: inherit; cursor: pointer; text-decoration: underline; }

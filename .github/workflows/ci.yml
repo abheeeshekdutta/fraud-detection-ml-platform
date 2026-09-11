@@ -1,0 +1,53 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked --extra dev
+      - run: uv run ruff check src tests
+      - run: uv run pytest -m 'not integration' --cov=fraud_platform --cov-report=term-missing
+      - run: uv run fraud-demo --rows 10
+      - run: docker compose -f docker-compose.yml -f docker-compose.demo.yml config --quiet
+  dashboard:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+  kafka:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked --extra dev
+      - run: docker compose up -d --wait kafka
+      - run: uv run pytest tests/integration
+        env:
+          RUN_KAFKA_INTEGRATION: '1'
+      - if: always()
+        run: docker compose logs kafka
+      - if: always()
+        run: docker compose down

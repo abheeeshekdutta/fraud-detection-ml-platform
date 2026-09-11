@@ -1,200 +1,70 @@
 # Architecture
 
-## Goal
+The platform separates model development, event processing, synchronous scoring, and operational
+review. The diagram in the [README](../README.md#architecture) reflects the implemented runtime.
 
-This document describes a local fraud detection platform that scores transactions in near real time, explains risk decisions, and monitors model health over time.
+## Offline learning
 
-The architecture separates offline model development, online scoring, monitoring, and analyst review into distinct components.
+IEEE-CIS transaction and identity data are left-joined by `TransactionID` and split chronologically
+into train, calibration, validation, and replay partitions. Preprocessing and model are packaged
+together in a local bundle. Logistic regression, CatBoost, and LightGBM share the feature schema.
+MLflow logging is optional; serving reads the configured local artifact, not the MLflow registry.
 
-## Event Flow
+The probability calibrator is fitted on held-out raw scores. The conformal artifact is also fitted
+on raw scores and continues to use that scale at runtime even when a probability calibrator is
+loaded. Decision thresholds use the calibrated probability. Without optional artifacts, raw scores
+and threshold-derived sets provide the smoke path; those sets have no conformal coverage claim.
 
-```mermaid
-flowchart TB
-    raw["IEEE-CIS transaction<br/>and identity files"]
-    split["Validation +<br/>time-aware split"]
-    replay["Transaction producer<br/>holdout replay"]
-    transaction_events[["Kafka<br/>transaction-events"]]
-    consumer["Fraud consumer<br/>stream scoring"]
-    policy{"Decision policy<br/>approve / review / block"}
-    fraud_decisions[["Kafka<br/>fraud-decisions"]]
-    postgres[("Postgres<br/>predictions + alerts")]
-    dashboard["React operations console<br/>analyst review"]
+## Runtime paths
 
-    raw --> split --> replay --> transaction_events --> consumer --> policy --> fraud_decisions
-    fraud_decisions --> postgres --> dashboard
-    fraud_decisions --> dashboard
+1. The replay producer converts rows into strict `TransactionEvent` messages. `transaction_dt`
+   preserves the dataset-relative time feature independently of the wall-clock `event_time`.
+2. The consumer validates each event and uses the shared scoring engine to generate a decision.
+3. It saves the decision to PostgreSQL, publishes to `fraud-decisions`, waits for broker
+   acknowledgement, then synchronously commits the input offset.
+4. `POST /score` runs the same engine and persists the decision before returning. It does not
+   publish a Kafka decision event.
+5. The React console polls `/predictions` and `/alerts` approximately every five seconds after the
+   previous refresh completes. An API error is visible; stale data retains its last-refresh timestamp.
 
-    mlflow["MLflow<br/>experiments + registry"]
-    artifacts["Local artifact bundle<br/>artifacts/model/latest"]
-    model["Active model bundle<br/>features + calibration + SHAP"]
-    api["Fraud API<br/>synchronous scoring"]
-    api_policy{"API decision policy<br/>same approve / review / block rules"}
-    checkout["Checkout or analyst workflow"]
+## Delivery and failure semantics
 
-    mlflow --> artifacts --> model
-    model --> consumer
-    model --> api
-    checkout --> api --> api_policy
-    api_policy --> postgres
-    policy --> postgres
+Kafka automatic offset commits and automatic offset storage are disabled. Invalid JSON or event
+contracts are acknowledged only after confirmed publication to `dead-letter-events`. Without a
+configured dead-letter destination, validation errors stop the consumer with the offset uncommitted.
+Scoring, database, broker, and acknowledgement errors also stop processing without advancing that
+offset; restart the consumer after resolving the cause.
 
-    fraud_labels[["Kafka<br/>fraud-labels"]]
-    monitor["Monitoring worker<br/>drift + quality checks"]
-    model_alerts[["Kafka<br/>model-alerts"]]
-    dead_letters[["Kafka<br/>dead-letter-events"]]
-    prometheus["Prometheus<br/>API metrics"]
-    grafana["Grafana<br/>observability dashboards"]
+Delivery is **at least once**. PostgreSQL and Kafka do not share a transaction. A crash after a
+successful write or publish but before the offset commit can replay that event. Prediction writes
+upsert by `event_id`; downstream Kafka consumers must deduplicate by the same field. The same
+transaction can have multiple event IDs. Concurrent requests with a new, identical event ID can
+race at the database primary key; clients should retry failures with the same ID.
 
-    transaction_events -. invalid payload .-> dead_letters
-    fraud_decisions --> monitor
-    fraud_labels --> monitor
-    monitor --> model_alerts
-    monitor --> postgres
-    monitor -. health feedback .-> mlflow
-    model_alerts --> dashboard
-    api --> prometheus --> grafana
+The single-message delivery wait favors a clear recovery boundary over peak throughput. There is
+no measured throughput or exactly-once guarantee. Replay and monitoring producers retain their
+simpler queued-publish behavior; consumer acknowledgement guarantees do not extend to them.
 
-    classDef dataNode fill:#e0f2fe,stroke:#0284c7,color:#0f172a,stroke-width:1.5px
-    classDef kafkaNode fill:#ffedd5,stroke:#ea580c,color:#0f172a,stroke-width:1.5px
-    classDef serviceNode fill:#f5f3ff,stroke:#7c3aed,color:#0f172a,stroke-width:1.5px
-    classDef decisionNode fill:#fee2e2,stroke:#dc2626,color:#0f172a,stroke-width:1.5px
-    classDef storeNode fill:#fef9c3,stroke:#ca8a04,color:#0f172a,stroke-width:1.5px
-    classDef opsNode fill:#f1f5f9,stroke:#475569,color:#0f172a,stroke-width:1.5px
+## Monitoring and observability
 
-    class raw,split,replay dataNode
-    class transaction_events,fraud_decisions,fraud_labels,model_alerts,dead_letters kafkaNode
-    class consumer,api,checkout,model serviceNode
-    class policy,api_policy decisionNode
-    class mlflow,artifacts,postgres storeNode
-    class monitor,prometheus,grafana,dashboard opsNode
-```
+The monitoring worker polls persisted predictions and emits review-rate shift alerts to PostgreSQL
+and `model-alerts`. Offline reports compare missingness, numeric means, and categorical distributions.
+Prometheus scrapes API request counts and scoring latency; Grafana is provisioned from source.
 
-## Major Components
+`fraud-labels` can carry simulated delayed outcomes, but there is no label-consuming performance
+worker, automatic retraining, or model promotion. Online reason codes are deterministic heuristics;
+SHAP reports are offline artifacts. These boundaries avoid confusing available helper functions
+with continuously operated services.
 
-### Transaction Producer
+## Storage and deployment
 
-Reads held-out IEEE-CIS transactions in timestamp order and publishes them to Kafka as simulated live payment events.
+Compose uses PostgreSQL, Kafka in KRaft mode, MLflow, FastAPI, the scoring consumer, replay producer,
+monitoring worker, Prometheus, Grafana, and the React console. Kafka and PostgreSQL health checks
+hold dependent services until those dependencies are ready. PostgreSQL uses a named volume.
+Model bundles remain bind-mounted local files. The demo overlay selects independent synthetic
+artifacts and disables real-data calibrators and conformal artifacts.
 
-Responsibilities:
-
-- load production replay split
-- preserve event-time ordering
-- optionally control replay speed
-- optionally inject drift scenarios
-- publish valid transaction events to `transaction-events`
-
-### Kafka
-
-Apache Kafka provides the event backbone.
-
-Initial topics:
-
-- `transaction-events`: incoming transaction scoring requests
-- `fraud-decisions`: model scores, decisions, reason codes, and uncertainty
-- `fraud-labels`: delayed labels for monitoring and retraining simulation
-- `model-alerts`: drift and operational alerts
-- `dead-letter-events`: invalid or unprocessable messages
-
-Kafka should run in KRaft mode through Docker Compose.
-
-### Fraud Consumer
-
-Consumes `transaction-events`, scores each transaction, writes the result to `fraud-decisions`, and persists prediction records.
-
-Responsibilities:
-
-- deserialize and validate transaction payloads
-- apply production feature pipeline
-- load active model artifact
-- calculate calibrated fraud probability
-- calculate conformal prediction set or uncertainty flag
-- generate SHAP-based reason codes
-- apply decision policy
-- persist prediction metadata and emit decision events
-
-### Fraud API
-
-FastAPI service for synchronous scoring and operational endpoints.
-
-Endpoints:
-
-- `POST /score`: score a transaction synchronously
-- `GET /health`: service health
-- `GET /model-info`: active model metadata
-- `GET /metrics`: Prometheus-compatible metrics
-
-This mirrors the checkout service path while Kafka powers replay, streaming, and downstream monitoring.
-
-### Training Pipeline
-
-Builds reproducible offline models.
-
-Responsibilities:
-
-- data loading and joining
-- time-aware split
-- data validation
-- feature engineering
-- baseline model
-- CatBoost and LightGBM candidates
-- calibration
-- conformal calibration
-- threshold and decision policy selection
-- MLflow experiment tracking
-- model artifact packaging
-
-### Monitoring Worker
-
-Evaluates production-like traffic and emits alerts.
-
-Responsibilities:
-
-- data drift
-- missingness drift
-- score distribution drift
-- latency and throughput checks
-- delayed-label performance checks
-- conformal coverage checks
-- alert writing to Postgres and Kafka
-
-### Dashboard
-
-React + Vite fraud operations console.
-
-Views:
-
-- live transaction decision feed
-- fraud score distribution
-- approve/review/block rates
-- model version and serving health
-- latency and throughput
-- drift and alert panel
-- transaction detail drawer with reason codes
-
-## Decision Flow
-
-```text
-incoming event
-   |
-schema validation
-   |
-feature pipeline
-   |
-model probability
-   |
-probability calibration
-   |
-conformal uncertainty
-   |
-decision policy
-   |
-approve / review / block
-```
-
-## Production Principles
-
-- Offline and online feature code should share the same transformations where practical.
-- Time-based validation is preferred over random splitting.
-- Every prediction should carry model version, feature schema version, and decision policy version.
-- Uncertainty should be routed to review rather than hidden.
-- Monitoring should evaluate both model quality and system behavior.
+API `/health` is liveness after model initialization, not a database or broker readiness check.
+A database failure can therefore leave `/health` green while scoring and feeds fail. Kafka and
+MLflow storage are not configured for durable recovery across container replacement. The local
+stack has no service authentication or TLS and is intended for a trusted development machine.

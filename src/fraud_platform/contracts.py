@@ -61,6 +61,7 @@ class TransactionEvent(BaseModel):
     transaction_id: int = Field(gt=0)
     event_time: AwareDatetime
     amount: float = Field(ge=0, allow_inf_nan=False)
+    transaction_dt: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     product_cd: str = Field(min_length=1)
     card_features: dict[str, Any] = Field(default_factory=dict)
     address_features: dict[str, Any] = Field(default_factory=dict)

@@ -1,0 +1,31 @@
+# Overlay keeps demonstration artifacts separate from IEEE-CIS model and data files.
+services:
+  fraud-api:
+    environment:
+      MODEL_BUNDLE_PATH: artifacts/demo/model
+      CALIBRATOR_PATH: ""
+      CONFORMAL_PATH: ""
+  fraud-consumer:
+    command:
+      - fraud-consumer
+      - --bootstrap-servers
+      - kafka:29092
+      - --model-path
+      - artifacts/demo/model
+      - --policy-path
+      - configs/decision_policy.yaml
+      - --calibrator-path
+      - ""
+      - --conformal-path
+      - ""
+      - --dead-letter-topic
+      - dead-letter-events
+  transaction-producer:
+    command:
+      - fraud-replay
+      - --bootstrap-servers
+      - kafka:29092
+      - --replay-path
+      - artifacts/demo/replay.parquet
+    volumes:
+      - ./artifacts:/app/artifacts:ro

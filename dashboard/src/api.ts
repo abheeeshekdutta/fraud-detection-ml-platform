@@ -2,22 +2,11 @@ import type { AlertEvent, DecisionEvent } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
 
-export async function fetchDecisions(): Promise<DecisionEvent[]> {
-  try {
-    const response = await fetch(`${API_BASE}/predictions`);
-    if (!response.ok) return [];
-    return response.json();
-  } catch {
-    return [];
-  }
+async function get<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, { signal: AbortSignal.timeout(10000) });
+  if (!response.ok) throw new Error(`API returned ${response.status}`);
+  return response.json();
 }
 
-export async function fetchAlerts(): Promise<AlertEvent[]> {
-  try {
-    const response = await fetch(`${API_BASE}/alerts`);
-    if (!response.ok) return [];
-    return response.json();
-  } catch {
-    return [];
-  }
-}
+export const fetchDecisions = () => get<DecisionEvent[]>("/predictions");
+export const fetchAlerts = () => get<AlertEvent[]>("/alerts");

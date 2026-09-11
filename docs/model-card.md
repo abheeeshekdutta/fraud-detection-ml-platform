@@ -30,7 +30,6 @@ The dataset includes transaction and identity files joined by `TransactionID`. I
 - Logistic regression baseline
 - CatBoostClassifier
 - LightGBMClassifier
-- optional XGBoostClassifier
 
 ## Evaluation
 
@@ -160,3 +159,20 @@ With isotonic-calibrated probabilities, the constrained point is:
 
 These operating points are useful for comparison, not deployment. Thresholds should be checked by
 segment before promotion.
+
+## Serving and uncertainty corrections — 2026-09-11
+
+The recorded baseline metrics above are historical offline measurements and were not regenerated
+for the reliability release. Replay now preserves `TransactionDT` through `transaction_dt`, fixing
+online time-feature skew. Recheck thresholds against replay before using older artifacts.
+
+Split-conformal fitting uses the `ceil((n + 1) * (1 - alpha))` order statistic. If that rank exceeds
+the calibration sample size, the threshold includes both classes. This follows the finite-sample
+rank construction in [Berkeley's conformal prediction notes](https://www.stat.berkeley.edu/~ryantibs/statlearn-s24/lectures/conformal.pdf).
+Refit previously generated conformal artifacts to adopt this correction.
+
+The conformal artifact is fitted and served on raw model probabilities. A separately configured
+probability calibrator affects policy thresholds, not the score scale supplied to that conformal
+artifact. Without a conformal artifact, prediction sets are threshold-derived heuristics with no
+coverage guarantee. Exchangeability is an assumption, not a property ensured by chronological
+splitting; evaluate empirical coverage and class-specific behavior under drift.

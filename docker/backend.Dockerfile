@@ -1,11 +1,8 @@
 FROM python:3.11-slim
-
 WORKDIR /app
-
-COPY pyproject.toml README.md ./
+COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
-RUN pip install --no-cache-dir uv && uv pip install --system .
-
+RUN pip install --no-cache-dir uv && uv sync --frozen --no-dev
+ENV PATH="/app/.venv/bin:$PATH"
 COPY configs ./configs
-
 CMD ["fraud-api"]

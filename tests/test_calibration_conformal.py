@@ -57,3 +57,19 @@ def test_split_conformal_classifier_round_trips_to_disk(tmp_path) -> None:
     assert loaded.alpha == conformal.alpha
     assert loaded.threshold_ == conformal.threshold_
     assert loaded.predict_sets(np.array([0.05, 0.95])) == [["legit"], ["fraud"]]
+
+
+def test_small_calibration_sample_returns_full_set_when_rank_exceeds_sample() -> None:
+    conformal = SplitConformalClassifier(alpha=0.1).fit(
+        np.array([0.01, 0.99]),
+        np.array([0, 1]),
+    )
+    assert conformal.predict_sets(np.array([0.0, 0.5, 1.0])) == [["legit", "fraud"]] * 3
+
+
+def test_conformal_rejects_invalid_calibration_samples() -> None:
+    import pytest
+
+    for scores, labels in [([], []), ([float("nan")], [0]), ([0.1], [2]), ([0.1], [0, 1])]:
+        with pytest.raises(ValueError):
+            SplitConformalClassifier().fit(np.array(scores), np.array(labels))

@@ -18,11 +18,9 @@ def test_health_endpoint(tmp_path) -> None:
     train_synthetic_model(model_dir)
     engine = ScoringEngine.from_paths(
         model_dir,
-        DecisionPolicy(
-            PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8)
-        ),
+        DecisionPolicy(PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8)),
     )
-    client = TestClient(create_app(scoring_engine=engine))
+    client = TestClient(create_app(scoring_engine=engine, predictions=[], alerts=[]))
 
     response = client.get("/health")
 
@@ -35,11 +33,9 @@ def test_score_endpoint_returns_decision(tmp_path) -> None:
     train_synthetic_model(model_dir)
     engine = ScoringEngine.from_paths(
         model_dir,
-        DecisionPolicy(
-            PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8)
-        ),
+        DecisionPolicy(PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8)),
     )
-    client = TestClient(create_app(scoring_engine=engine))
+    client = TestClient(create_app(scoring_engine=engine, predictions=[], alerts=[]))
     payload = {
         "event_id": "evt-1",
         "transaction_id": 1,
@@ -66,11 +62,9 @@ def test_model_info_endpoint(tmp_path) -> None:
     train_synthetic_model(model_dir)
     engine = ScoringEngine.from_paths(
         model_dir,
-        DecisionPolicy(
-            PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8)
-        ),
+        DecisionPolicy(PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8)),
     )
-    client = TestClient(create_app(scoring_engine=engine))
+    client = TestClient(create_app(scoring_engine=engine, predictions=[], alerts=[]))
 
     response = client.get("/model-info")
 
@@ -101,7 +95,7 @@ def test_create_app_loads_configured_calibrator(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("DECISION_POLICY_PATH", str(policy_path))
     monkeypatch.setenv("CALIBRATOR_PATH", str(calibrator_path))
 
-    client = TestClient(create_app())
+    client = TestClient(create_app(predictions=[], alerts=[]))
 
     payload = {
         "event_id": "evt-1",
@@ -119,9 +113,10 @@ def test_create_app_loads_configured_calibrator(tmp_path, monkeypatch) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["calibrated_probability"] == calibrator.predict(
-        np.array([body["fraud_probability"]])
-    )[0]
+    assert (
+        body["calibrated_probability"]
+        == calibrator.predict(np.array([body["fraud_probability"]]))[0]
+    )
 
 
 def test_dashboard_endpoints_return_stored_predictions_and_alerts(tmp_path) -> None:
@@ -129,9 +124,7 @@ def test_dashboard_endpoints_return_stored_predictions_and_alerts(tmp_path) -> N
     train_synthetic_model(model_dir)
     engine = ScoringEngine.from_paths(
         model_dir,
-        DecisionPolicy(
-            PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8)
-        ),
+        DecisionPolicy(PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8)),
     )
     stored_decision = DecisionEvent(
         event_id="evt-stored",
@@ -180,11 +173,9 @@ def test_api_allows_dashboard_browser_origin(tmp_path) -> None:
     train_synthetic_model(model_dir)
     engine = ScoringEngine.from_paths(
         model_dir,
-        DecisionPolicy(
-            PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8)
-        ),
+        DecisionPolicy(PolicyConfig(version="v1", approve_threshold=0.2, block_threshold=0.8)),
     )
-    client = TestClient(create_app(scoring_engine=engine))
+    client = TestClient(create_app(scoring_engine=engine, predictions=[], alerts=[]))
 
     response = client.options(
         "/predictions",

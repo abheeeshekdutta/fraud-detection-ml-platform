@@ -1,183 +1,171 @@
 # Fraud Detection ML Platform
 
-A local ML platform for scoring e-commerce payment transactions and monitoring fraud decisions.
+[![CI](https://github.com/abheeeshekdutta/fraud-detection-ml-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/abheeeshekdutta/fraud-detection-ml-platform/actions/workflows/ci.yml)
 
-The platform includes:
+An end-to-end fraud decision system connecting time-aware machine learning, Kafka streaming,
+FastAPI serving, and a live operations console. Transactions receive an **approve**, **review**,
+or **block** decision with model lineage, probability, uncertainty, and analyst reason codes.
 
-- time-aware fraud modeling on realistic tabular data
-- Kafka-based real-time transaction scoring
-- calibrated probabilities and conformal uncertainty
-- explainable fraud decisions for analyst review
-- model monitoring, drift checks, and operational observability
-- reproducible local deployment with free/open-source tooling
+![Fraud operations console](docs/images/operations-console.png)
 
-## Use Case
+*Console preview using 20 synthetic transactions scored locally; displayed metrics are illustrative.*
 
-The system scores incoming e-commerce payment transactions and returns one of three decisions:
+## Engineering highlights
 
-- `approve`: low fraud risk and low uncertainty
-- `review`: uncertain, borderline, or operationally suspicious
-- `block`: high fraud risk and low uncertainty
+- **Shared offline and online features:** the same preprocessing pipeline serves logistic regression,
+  CatBoost, and LightGBM; replay preserves transaction time to prevent training/serving skew.
+- **Decision quality beyond AUC:** separate chronological train, calibration, validation, and replay
+  splits; probability calibration; split-conformal uncertainty; cost and capacity constrained thresholds.
+- **Recoverable event processing:** explicit Kafka acknowledgements before offset commits, invalid
+  payload routing, and prediction upserts keyed by event ID.
+- **Persistent scoring:** synchronous and streaming decisions reach the same PostgreSQL prediction
+  store, with model, feature-schema, and policy versions attached to every result.
+- **Operational visibility:** a React console with live decisions, review rates, latency, reason codes,
+  connection status, and alerts; Prometheus metrics and provisioned Grafana dashboards.
+- **Reproducible delivery:** locked Python and JavaScript dependencies, health-gated Docker Compose
+  startup, a deterministic synthetic demo, regression tests, and GitHub Actions including live Kafka testing.
 
-The project uses the IEEE-CIS Fraud Detection dataset as the historical data source. The dataset contains transaction and identity files joined by `TransactionID`; not every transaction has identity data, which creates realistic missingness and enrichment behavior.
-
-## Runtime Philosophy
-
-Required spend: `$0`.
-
-The default stack is self-hosted locally with Docker Compose and open/free tooling. No managed cloud services, paid APIs, paid monitoring products, or proprietary databases are required.
-
-Recommended local container runtime on macOS:
-
-- Colima + Docker CLI, to avoid Docker Desktop licensing concerns
-
-## Core Stack
-
-- Python 3.11
-- uv for Python dependency and environment management
-- Apache Kafka in KRaft mode
-- FastAPI
-- PostgreSQL
-- MLflow OSS
-- CatBoost, LightGBM, and scikit-learn
-- MAPIE for conformal prediction
-- SHAP for explainability
-- Evidently OSS for model/data monitoring
-- Prometheus and Grafana OSS
-- React + Vite for the fraud operations console
-- Docker Compose for local deployment
-
-## System Shape
+## Architecture
 
 ```mermaid
-flowchart TB
-    subgraph offline["Offline learning path"]
-        direction LR
-        raw["Historical IEEE-CIS data"]
-        validate["Validate +<br/>time split"]
-        features["Shared<br/>features"]
-        train["Train<br/>models"]
-        calibrate["Calibrate +<br/>uncertainty"]
-        registry["MLflow<br/>model artifacts"]
-
-        raw --> validate --> features --> train --> calibrate --> registry
-    end
-
-    subgraph online["Online decision path"]
-        direction LR
-        replay["Holdout replay<br/>transaction producer"]
-        topic_in[["Kafka<br/>transaction-events"]]
-        consumer["Fraud consumer<br/>features + model"]
-        policy["Decision policy<br/>approve / review / block"]
-        topic_out[["Kafka<br/>fraud-decisions"]]
-
-        replay --> topic_in --> consumer --> policy --> topic_out
-    end
-
-    subgraph serving["Synchronous serving path"]
-        direction LR
-        api["FastAPI fraud API<br/>POST /score"]
-        checkout["Checkout or analyst workflow"]
-
-        checkout --> api --> policy
-    end
-
-    subgraph ops["Operations and observability"]
-        direction LR
-        postgres[("Postgres<br/>predictions + alerts")]
-        monitor["Monitoring worker<br/>drift + delayed labels"]
-        prometheus["Prometheus<br/>service metrics"]
-        grafana["Grafana<br/>system dashboards"]
-        dashboard["React operations console<br/>live feed + reason codes"]
-
-        topic_out --> postgres
-        topic_out --> monitor
-        monitor --> postgres
-        api --> prometheus --> grafana
-        postgres --> dashboard
-        api --> dashboard
-    end
-
-    registry -. active model bundle .-> consumer
-    registry -. active model bundle .-> api
-    monitor -. model health feedback .-> registry
-
-    classDef data fill:#e0f2fe,stroke:#0284c7,color:#0f172a,stroke-width:1.5px
-    classDef ml fill:#dcfce7,stroke:#16a34a,color:#0f172a,stroke-width:1.5px
-    classDef stream fill:#ffedd5,stroke:#ea580c,color:#0f172a,stroke-width:1.5px
-    classDef service fill:#f5f3ff,stroke:#7c3aed,color:#0f172a,stroke-width:1.5px
-    classDef store fill:#fef9c3,stroke:#ca8a04,color:#0f172a,stroke-width:1.5px
-    classDef ops fill:#f1f5f9,stroke:#475569,color:#0f172a,stroke-width:1.5px
-
-    class raw,validate,replay data
-    class features,train,calibrate,registry ml
-    class topic_in,topic_out,consumer,policy stream
-    class api,checkout service
-    class postgres store
-    class monitor,prometheus,grafana,dashboard ops
-
-    style offline fill:#f8fafc,stroke:#16a34a,stroke-width:1.5px,color:#0f172a
-    style online fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px,color:#0f172a
-    style serving fill:#faf5ff,stroke:#7c3aed,stroke-width:1.5px,color:#0f172a
-    style ops fill:#f8fafc,stroke:#475569,stroke-width:1.5px,color:#0f172a
+flowchart LR
+    Data[IEEE-CIS data] --> Split[Chronological splits]
+    Split --> Train[Train and evaluate]
+    Train --> Bundle[Local model artifacts]
+    Train -. optional experiment logging .-> MLflow[MLflow]
+    Split --> Replay[Replay producer]
+    Replay --> Kafka[Kafka transaction-events]
+    Kafka --> Consumer[Scoring consumer]
+    Bundle --> Consumer
+    Bundle --> API[FastAPI]
+    Client[Scoring clients] --> API
+    Consumer --> Decisions[Kafka fraud-decisions]
+    Consumer --> DB[(PostgreSQL)]
+    API --> DB
+    Consumer -. invalid payloads .-> DLQ[Kafka dead-letter-events]
+    DB --> Monitor[Review-rate monitoring]
+    Monitor --> DB
+    Monitor --> Alerts[Kafka model-alerts]
+    DB --> API
+    API --> UI[React operations console]
+    API --> Prometheus --> Grafana
 ```
 
-## Quickstart
+See [architecture and delivery semantics](docs/architecture.md) for component boundaries and failure handling.
 
-1. Install Python 3.11 and `uv`.
-2. Copy `.env.example` to `.env`.
-3. Run `uv sync --extra dev`.
-4. Run `uv run fraud-train --synthetic --output-dir artifacts/model/latest`.
-5. Run `docker compose up --build`.
-6. Open:
-   - dashboard: `http://localhost:5173`
-   - fraud API: `http://localhost:8000/docs`
-   - MLflow: `http://localhost:5001`
-   - Grafana: `http://localhost:3000`
-   - Prometheus: `http://localhost:9090`
+## Run the synthetic demo
 
-If IEEE-CIS data is available in `data/raw`, use the real-data baseline instead:
+Requires Python 3.11, [uv](https://docs.astral.sh/uv/), and Docker with Compose and a running daemon.
+All services run locally; the demo requires no dataset download or external account.
+
+```bash
+uv sync --locked --extra dev
+make demo-up
+```
+
+This generates a demonstration model and 200 deterministic transactions under `artifacts/demo/`,
+then starts the stack. The producer finishes after replaying its input; the API and console remain
+available. Existing IEEE-CIS data and model files are preserved.
+
+| Service | Address |
+| --- | --- |
+| Operations console | http://localhost:5173 |
+| Interactive API | http://localhost:8000/docs |
+| MLflow | http://localhost:5001 |
+| Grafana | http://localhost:3000 |
+| Prometheus | http://localhost:9090 |
+
+The synthetic model verifies integration behavior only. Its scores are not evidence of fraud
+predictive performance. Synthetic training does not create an MLflow experiment run.
+
+Replay again or stop the stack:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.demo.yml run --rm transaction-producer
+docker compose -f docker-compose.yml -f docker-compose.demo.yml down
+```
+
+PostgreSQL data persists in a named volume. Each replay creates new event IDs and adds a new set
+of decisions. Dashboard percentages and p95 describe the latest fetched window, not all history.
+
+### Score a transaction
+
+```bash
+curl --fail-with-body http://localhost:8000/score \
+  -H 'Content-Type: application/json' \
+  -d '{"event_id":"example-001","transaction_id":10001,"event_time":"2026-09-11T12:00:00Z","transaction_dt":3600.0,"amount":75.0,"product_cd":"W","schema_version":"v1"}'
+```
+
+The result is saved before the API returns and appears in the console on its next refresh.
+Reusing an event ID updates its stored decision. See [the local walkthrough](docs/demo-script.md).
+
+## Train on IEEE-CIS
+
+Place the transaction and identity training CSV files in `data/raw/` after obtaining the dataset
+under its source terms. Raw data, fitted models, and generated reports are excluded from Git.
 
 ```bash
 uv run fraud-train --prepare-ieee --raw-dir data/raw --processed-dir data/processed
-uv run fraud-train --ieee-baseline --processed-dir data/processed --output-dir artifacts/model/latest --max-train-rows 100000
+uv run fraud-train --ieee-baseline --processed-dir data/processed \
+  --output-dir artifacts/model/latest --max-train-rows 100000 --model-candidate lightgbm
+
+docker compose up --build -d
 ```
 
-The real-data trainer writes a local model bundle to `artifacts/model/latest`. Use
-`--model-candidate catboost` or `--model-candidate lightgbm` to benchmark tree-based candidates
-through the same artifact path. Add `--tune-hyperparameters` for a small time-aware grid search
-before fitting the final candidate. To also log metrics, hyperparameters, and the sklearn model to
-MLflow, start the local MLflow service first and pass `--mlflow-tracking-uri http://localhost:5001`.
+Add `--tune-hyperparameters` for chronological cross-validation. To track experiments, start
+`docker compose up -d mlflow` and add `--mlflow-tracking-uri http://localhost:5001` to training.
+The [operator runbook](docs/runbook.md) covers calibration, conformal artifacts, threshold analysis,
+SHAP reports, and monitoring.
+
+### Recorded baseline results
+
+The existing [IEEE-CIS analysis](docs/ieee-cis-analysis.md) reports these first-pass validation
+results using the most recent 100,000 training rows and 88,581 later validation transactions:
+
+| Model | ROC-AUC | PR-AUC | Brier score ↓ |
+| --- | ---: | ---: | ---: |
+| Logistic regression | 0.7543 | 0.1111 | 0.0303 |
+| CatBoost | 0.7526 | 0.1309 | 0.0300 |
+| LightGBM | 0.7677 | 0.1503 | 0.0297 |
+
+These are historical measurements recorded in this repository, not results regenerated by CI.
+They predate the serving and uncertainty fixes in this release. Re-evaluate artifacts and decision
+thresholds before relying on them. The [model card](docs/model-card.md) explains dataset,
+calibration, threshold tradeoffs, and limitations.
+
+## Development and verification
+
+```bash
+uv sync --locked --extra dev
+make check                 # Python lint/tests, dashboard tests, production frontend build
+make demo                  # Generate standalone synthetic artifacts
+
+docker compose up -d --wait kafka
+make integration           # Real broker: scoring, invalid event routing, offset verification
+```
+
+`make check` also needs Node.js 22+ and npm. The broker test is opt-in locally and runs in its own
+CI job. An end-to-end local test trains a model, scores HTTP requests, persists them to SQLite,
+and reads the dashboard feed without Docker. PostgreSQL remains the Compose runtime database.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md)
-- [Data Contracts](docs/data-contracts.md)
-- [Docker Runbook](docs/docker-runbook.md)
-- [Execution Runbook](docs/execution-runbook.md)
-- [Operator Runbook](docs/runbook.md)
-- [Local Walkthrough](docs/demo-script.md)
-- [IEEE-CIS Data Profile](docs/data-profile.md)
-- [IEEE-CIS Findings And Baseline Analysis](docs/ieee-cis-analysis.md)
-- [Modeling Plan](docs/modeling.md)
-- [Feature Engineering](docs/feature-engineering.md)
-- [Hyperparameter Tuning](docs/hyperparameter-tuning.md)
-- [Monitoring Plan](docs/monitoring.md)
-- [Deployment Plan](docs/deployment.md)
-- [Model Card](docs/model-card.md)
-- [Superpowers Design Spec](docs/superpowers/specs/2026-06-10-fraud-detection-platform-design.md)
+- [Architecture and failure semantics](docs/architecture.md)
+- [API and event contracts](docs/data-contracts.md)
+- [Local walkthrough](docs/demo-script.md)
+- [Docker operations](docs/docker-runbook.md) · [Deployment](docs/deployment.md)
+- [Operator runbook](docs/runbook.md) · [Execution reference](docs/execution-runbook.md)
+- [Modeling](docs/modeling.md) · [Model card](docs/model-card.md)
+- [Feature engineering](docs/feature-engineering.md) · [Hyperparameter tuning](docs/hyperparameter-tuning.md)
+- [Data profile](docs/data-profile.md) · [IEEE-CIS analysis](docs/ieee-cis-analysis.md)
+- [Monitoring](docs/monitoring.md) · [Validation record](docs/validation.md)
+- [Contributing](CONTRIBUTING.md) · [Release notes](CHANGELOG.md)
 
-## Status
+## Deployment boundary
 
-The local platform currently supports the first end-to-end smoke path:
-
-- strict event contracts
-- feature pipeline foundation
-- model, calibration, and conformal artifact packaging
-- scoring API
-- Kafka replay, delayed label publishing, scoring consumer, and dead-letter handling
-- prediction and alert storage schema
-- monitoring worker that persists review-rate shift alerts
-- local monitoring report generation
-- persisted Kafka consumer decisions with API prediction and alert feeds for the dashboard
-- Docker Compose observability stack
+This is a self-hosted engineering reference with a working local deployment. It has no public API
+authentication, automated model promotion, or production load benchmark. Runtime reason codes are
+heuristics; SHAP is generated offline. Delayed labels can be published, but the worker currently
+monitors the persisted review rate rather than consuming labels. Conformal coverage depends on
+exchangeability and is not guaranteed under temporal drift. See the model card and architecture
+for the full operational boundary.

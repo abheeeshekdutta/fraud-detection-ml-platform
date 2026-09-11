@@ -1,10 +1,12 @@
 # Execution Runbook
 
-This project is built so each stage can be run locally and inspected through files.
+Each stage can be run locally and inspected through files. For the complete synthetic path, use
+`uv sync --locked --extra dev` followed by `make demo-up`; the steps below describe the real-data
+workflow and individual services.
 
 ## 1. Fetch Or Place Raw Data
 
-The project does not automatically download the IEEE-CIS dataset yet. Download the dataset from
+The project does not automatically download the IEEE-CIS dataset. Download the dataset from
 Kaggle and place these files locally:
 
 - `data/raw/train_transaction.csv`
@@ -36,7 +38,13 @@ Purpose:
 - Use those findings to decide CatBoost and LightGBM preprocessing choices.
 - Decide how to structure time-based train, calibration, validation, and replay splits.
 
-## 3. Train A Local Model Artifact
+## 3. Prepare Splits And Train A Local Model Artifact
+
+```bash
+uv run fraud-train --prepare-ieee --raw-dir data/raw --processed-dir data/processed
+```
+
+A synthetic model is available for isolated component checks:
 
 ```bash
 uv run fraud-train --synthetic --output-dir artifacts/model/latest
@@ -68,6 +76,8 @@ uv run fraud-explain --processed-dir data/processed --model-dir artifacts/model/
 
 ## 4. Run The Scoring API
 
+Start PostgreSQL with `docker compose up -d --wait postgres` before scoring or loading feeds.
+
 ```bash
 uv run fraud-api
 ```
@@ -86,20 +96,20 @@ Purpose:
 
 ## 5. Start Kafka Services
 
-This task adds topic definitions in:
+Topic definitions are documented in:
 
 - `configs/kafka_topics.yaml`
 
 The Docker Compose stack runs Kafka in KRaft mode alongside Postgres, MLflow, Prometheus, Grafana,
 the API, the consumer, the replay producer, the monitoring worker, and the dashboard.
 
-Before starting the full stack, make sure the smoke model exists:
+Before starting the base stack, make sure the real-data model and processed replay split exist:
 
 ```bash
 uv run fraud-train --synthetic --output-dir artifacts/model/latest
 ```
 
-Then run:
+For a complete synthetic deployment, use `make demo-up` instead. For the real-data stack, run:
 
 ```bash
 docker compose up --build
@@ -189,7 +199,7 @@ Expected outputs:
 
 ```bash
 cd dashboard
-npm install
+npm ci
 npm run dev -- --host 127.0.0.1
 ```
 
@@ -208,27 +218,20 @@ Expected UI:
 Purpose:
 
 - Give fraud analysts a local operations console for inspecting model decisions and alert status.
-- Read live prediction and alert feeds from the API, with fallback demo data only when no feed rows
-  are available.
+- Read live prediction and alert feeds from the API with explicit empty and connection-error states.
 
-## Current Sequence Summary
+## End-to-end sequence
 
 ```text
-manual Kaggle download
-  -> data/raw/*.csv
-  -> uv run python scripts/profile_ieee_cis.py
-  -> reports/eda/* and docs/data-profile.md
-  -> uv run fraud-train --synthetic
-  -> artifacts/model/latest/*
-  -> uv run fraud-api
-  -> uv run fraud-replay
-  -> Kafka transaction-events and fraud-labels
-  -> uv run fraud-consumer
-  -> Kafka fraud-decisions, Postgres predictions, optional dead-letter-events
-  -> uv run fraud-monitor
-  -> Postgres alerts and Kafka model-alerts
-  -> uv run fraud-monitor-report
-  -> reports/generated/monitoring_report.json
-  -> cd dashboard && npm run dev -- --host 127.0.0.1
-  -> browser dashboard at http://127.0.0.1:5173/
+IEEE-CIS CSVs
+  -> chronological train/calibration/validation/replay splits
+  -> train and evaluate a local model bundle
+  -> optional calibration, conformal, and SHAP artifacts
+  -> Compose: Kafka, PostgreSQL, scoring services, monitoring, console
+  -> replay transactions and optional delayed labels
+  -> consumer persists decisions and publishes Kafka output
+  -> API feeds power the operations console
 ```
+
+The synchronous API also persists decisions. Delayed labels are published for downstream use;
+the monitoring worker currently evaluates review-rate shifts from stored predictions.

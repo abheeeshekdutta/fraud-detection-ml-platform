@@ -94,6 +94,7 @@ def build_transaction_event(row: pd.Series, event_time_base: str) -> Transaction
         transaction_id=int(row["TransactionID"]),
         event_time=event_time,
         amount=float(row["TransactionAmt"]),
+        transaction_dt=float(row["TransactionDT"]),
         product_cd=str(row["ProductCD"]),
         card_features=_clean_mapping({"card1": row.get("card1")}),
         address_features=_clean_mapping({"addr1": row.get("addr1")}),
