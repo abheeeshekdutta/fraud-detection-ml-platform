@@ -17,12 +17,23 @@ Local verification on 2026-09-11 used Python 3.11 on macOS and the repository lo
 The local persistence regression runs synthetic training, HTTP scoring, SQLAlchemy persistence,
 event-ID retry, and dashboard feed reads against a temporary SQLite database. Failure tests verify
 that scoring, storage, delivery, and dead-letter publication failures do not commit input offsets.
-Feature-parity coverage compares the model probability before and after event serialization.
+Feature-parity coverage compares offline model probabilities with scoring after event construction.
 
-The Docker daemon was unavailable on this machine. A full Compose deployment and live Kafka test
-were therefore not executed locally. `.github/workflows/ci.yml` runs the opt-in Kafka test against
-a real broker, in addition to separate backend and dashboard jobs. Check the CI run for remote
-results; this file records local results only.
+## Remote deployment verification
+
+[GitHub Actions run 34600316707](https://github.com/abheeeshekdutta/fraud-detection-ml-platform/actions/runs/34600316707)
+passed all four jobs for implementation commit `d63889e`: backend, dashboard, Kafka, and Compose.
+
+The Docker daemon was unavailable locally, so deployment verification ran on the clean Ubuntu CI
+runner. The Compose job built the application images and started the full synthetic stack.
+`scripts/smoke_compose.py` verified ten replayed transactions reached the persisted API feed through
+Kafka, the scoring consumer, and PostgreSQL. It also submitted an HTTP scoring request, verified
+its persisted result, checked the alerts endpoint, and fetched the nginx-served dashboard.
+The independent Kafka test verified decision delivery, dead-letter routing, and committed offsets.
+
+The browser check additionally confirmed that stopping the preview API produces a visible stale-data
+warning while retaining the last successful feed. Temporary local preview services were stopped
+when verification finished.
 
 Existing dependency deprecation warnings and SHAP convergence warnings on small synthetic fixtures
 remain visible in pytest output. No IEEE-CIS data or trained real-data artifacts were available for

@@ -23,7 +23,7 @@ or **block** decision with model lineage, probability, uncertainty, and analyst 
 - **Operational visibility:** a React console with live decisions, review rates, latency, reason codes,
   connection status, and alerts; Prometheus metrics and provisioned Grafana dashboards.
 - **Reproducible delivery:** locked Python and JavaScript dependencies, health-gated Docker Compose
-  startup, a deterministic synthetic demo, regression tests, and GitHub Actions including live Kafka testing.
+  startup, a deterministic synthetic demo, regression tests, and GitHub Actions including live Kafka and full Compose testing.
 
 ## Architecture
 
@@ -145,7 +145,8 @@ make integration           # Real broker: scoring, invalid event routing, offset
 ```
 
 `make check` also needs Node.js 22+ and npm. The broker test is opt-in locally and runs in its own
-CI job. An end-to-end local test trains a model, scores HTTP requests, persists them to SQLite,
+CI job. A separate Compose job builds the images and verifies replay-to-database-to-API flow
+with `scripts/smoke_compose.py`. An end-to-end local test trains a model, scores HTTP requests, persists them to SQLite,
 and reads the dashboard feed without Docker. PostgreSQL remains the Compose runtime database.
 
 ## Documentation

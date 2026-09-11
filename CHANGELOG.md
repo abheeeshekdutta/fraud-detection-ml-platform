@@ -11,6 +11,8 @@
 - Corrected the finite-sample conformal rank and preserved the raw-score scale at inference.
 - Replaced fabricated dashboard fallback data with loading, empty, stale, and connection-error states.
 - Added backend, frontend, persistence, delivery-failure, and opt-in live Kafka regression coverage.
+- Verified all four CI jobs, including a full synthetic Docker deployment and a live Kafka broker.
+- Added the OpenMP runtime required by tree-model libraries in the backend image.
 - Added GitHub Actions checks, locked backend image installation, dependency health checks, and
   durable PostgreSQL storage; refreshed frontend dependencies.
 - Reworked project documentation around architecture, measured results, reproducibility, and
