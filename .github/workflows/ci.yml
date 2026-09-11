@@ -51,3 +51,19 @@ jobs:
         run: docker compose logs kafka
       - if: always()
         run: docker compose down
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked --extra dev
+      - run: uv run fraud-demo --rows 10
+      - run: docker compose -f docker-compose.yml -f docker-compose.demo.yml up --build -d
+      - run: uv run python scripts/smoke_compose.py
+      - if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.demo.yml logs --tail=100
+      - if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.demo.yml down -v
