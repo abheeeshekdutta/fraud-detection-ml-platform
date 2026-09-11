@@ -10,8 +10,8 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
       - run: uv sync --locked --extra dev
@@ -25,8 +25,8 @@ jobs:
       run:
         working-directory: dashboard
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: '22'
           cache: npm
@@ -38,12 +38,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
       - run: uv sync --locked --extra dev
-      - run: docker compose up -d --wait kafka
+      - name: Pull Kafka image with bounded retries
+        timeout-minutes: 5
+        run: bash scripts/ci_retry.sh docker compose pull kafka
+      - run: docker compose up --pull never -d --wait kafka
       - run: uv run pytest tests/integration
         env:
           RUN_KAFKA_INTEGRATION: '1'
@@ -55,13 +58,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
       - run: uv sync --locked --extra dev
       - run: uv run fraud-demo --rows 10
-      - run: docker compose -f docker-compose.yml -f docker-compose.demo.yml up --build -d
+      - name: Pull service images with bounded retries
+        timeout-minutes: 5
+        run: bash scripts/ci_retry.sh docker compose --parallel 1 -f docker-compose.yml -f docker-compose.demo.yml pull --ignore-buildable
+      - name: Build application images with bounded retries
+        timeout-minutes: 10
+        run: bash scripts/ci_retry.sh docker compose -f docker-compose.yml -f docker-compose.demo.yml build
+      - name: Start prepared demo stack
+        run: docker compose -f docker-compose.yml -f docker-compose.demo.yml up --no-build --pull never -d
       - run: uv run python scripts/smoke_compose.py
       - if: always()
         run: docker compose -f docker-compose.yml -f docker-compose.demo.yml logs --tail=100

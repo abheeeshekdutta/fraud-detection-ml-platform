@@ -42,3 +42,15 @@ presented as newly reproduced results.
 
 The screenshot in the README was captured from the local API/React preview with generated
 synthetic decisions. It verifies rendering, not Kafka throughput or predictive performance.
+
+## Docker Hub pull failure and CI recovery
+
+The documentation-only run `34600560002` failed before application startup because the Docker Hub
+OAuth token connection was reset while pulling `postgres:17-alpine`. Other image pulls were then
+cancelled by Compose. This was a registry transport failure, not a PostgreSQL or scoring failure.
+
+CI now prepares images separately from startup. Service pulls are serialized in the Compose job;
+pulls and builds have at most four attempts with 5/10/20-second backoff. A persistent failure still
+fails the job with the final exit code. Startup uses `--no-build --pull never`, and application
+startup and tests are not retried. The Kafka job uses the same bounded image-pull recovery.
+The retry helper has regression tests for immediate success, transient recovery, and exhaustion.
