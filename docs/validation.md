@@ -54,3 +54,6 @@ pulls and builds have at most four attempts with 5/10/20-second backoff. A persi
 fails the job with the final exit code. Startup uses `--no-build --pull never`, and application
 startup and tests are not retried. The Kafka job uses the same bounded image-pull recovery.
 The retry helper has regression tests for immediate success, transient recovery, and exhaustion.
+
+Python jobs share the restored uv cache, with only the backend job saving it to avoid parallel
+cache-reservation warnings. Action versions were updated to remove Node.js 20 deprecation warnings.

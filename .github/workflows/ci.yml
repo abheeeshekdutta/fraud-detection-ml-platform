@@ -14,6 +14,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
+          save-cache: ${{ github.job == 'backend' }}
       - run: uv sync --locked --extra dev
       - run: uv run ruff check src tests
       - run: uv run pytest -m 'not integration' --cov=fraud_platform --cov-report=term-missing
@@ -42,6 +43,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
+          save-cache: ${{ github.job == 'backend' }}
       - run: uv sync --locked --extra dev
       - name: Pull Kafka image with bounded retries
         timeout-minutes: 5
@@ -62,6 +64,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
+          save-cache: ${{ github.job == 'backend' }}
       - run: uv sync --locked --extra dev
       - run: uv run fraud-demo --rows 10
       - name: Pull service images with bounded retries
